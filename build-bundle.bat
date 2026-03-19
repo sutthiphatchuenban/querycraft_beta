@@ -82,10 +82,20 @@ if %ERRORLEVEL% neq 0 (
 )
 
 echo.
+echo [6/6] Creating ZIP archive for distribution...
+powershell -Command "Compress-Archive -Path 'build_output\QueryCraft' -DestinationPath 'build_output\QueryCraft.zip' -Force"
+if %ERRORLEVEL% neq 0 (
+    echo [WARNING] Failed to create ZIP archive.
+) else (
+    echo [OK] ZIP archive created: build_output\QueryCraft.zip
+)
+
+echo.
 echo ==========================================
 echo   SUCCESS! 
 echo ==========================================
 echo.
 echo Portable app created in: build_output\QueryCraft
+echo Downloadable ZIP: build_output\QueryCraft.zip
 echo.
 pause

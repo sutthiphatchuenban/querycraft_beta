@@ -1,0 +1,27 @@
+# Maven build output
+target/
+
+# Application bundle output
+build_output/
+
+# External libraries (downloaded via script)
+lib/
+
+# IDE settings
+.vscode/
+.idea/
+*.iml
+*.iws
+.project
+.classpath
+.settings/
+
+# OS generated files
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Temporary files
+*.tmp
+*.log
+manifest_temp.txt

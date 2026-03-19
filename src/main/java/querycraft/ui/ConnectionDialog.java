@@ -4,6 +4,7 @@ import javafx.event.ActionEvent;
 import javafx.geometry.Insets;
 import javafx.scene.control.*;
 import javafx.scene.layout.GridPane;
+import javafx.scene.layout.HBox;
 import javafx.stage.Modality;
 import querycraft.model.ConnectionInfo;
 import querycraft.model.DatabaseType;
@@ -63,17 +64,46 @@ public class ConnectionDialog extends Dialog<ConnectionInfo> {
         ComboBox<RecentConnection> recentCombo = new ComboBox<>();
         recentCombo.setPromptText("Select a recent connection...");
         recentCombo.getItems().addAll(recentList);
-        recentCombo.setPrefWidth(300);
+        recentCombo.setPrefWidth(225);
+        recentCombo.setPrefHeight(30);
+
+        Button deleteRecentButton = new Button("Delete");
+        deleteRecentButton.getStyleClass().add("button-danger");
+        deleteRecentButton.setPrefWidth(70);
+        deleteRecentButton.setPrefHeight(30);
+        deleteRecentButton.setOnAction(e -> {
+            RecentConnection selected = recentCombo.getValue();
+            if (selected != null) {
+                recentList.remove(selected);
+                recentCombo.getItems().remove(selected);
+                recentCombo.setValue(null);
+                saveAllRecentConnections(recentList);
+            }
+        });
+
+        HBox recentBox = new HBox(5, recentCombo, deleteRecentButton);
 
         ComboBox<DatabaseType> typeCombo = new ComboBox<>();
         typeCombo.getItems().addAll(DatabaseType.values());
         typeCombo.setValue(DatabaseType.MYSQL);
+        typeCombo.setPrefWidth(300);
+        typeCombo.setPrefHeight(30);
 
         TextField hostField = new TextField("localhost");
+        hostField.setPrefWidth(300);
+        hostField.setPrefHeight(30);
         TextField portField = new TextField(String.valueOf(DatabaseType.MYSQL.getDefaultPort()));
+        portField.setPrefWidth(300);
+        portField.setPrefHeight(30);
         TextField databaseField = new TextField();
+        databaseField.setPrefWidth(300);
+        databaseField.setPrefHeight(30);
         TextField usernameField = new TextField();
+        usernameField.setPrefWidth(300);
+        usernameField.setPrefHeight(30);
         PasswordField passwordField = new PasswordField();
+        passwordField.setPrefWidth(300);
+        passwordField.setPrefHeight(30);
         CheckBox sslCheck = new CheckBox("Use SSL (Required for Neon/Cloud)");
         CheckBox rememberCheck = new CheckBox("Remember Connection");
         rememberCheck.setSelected(true); // Default to checked as user wants history
@@ -119,7 +149,7 @@ public class ConnectionDialog extends Dialog<ConnectionInfo> {
         grid.setPadding(new Insets(20, 20, 10, 20));
 
         grid.add(new Label("Recent:"), 0, 0);
-        grid.add(recentCombo, 1, 0);
+        grid.add(recentBox, 1, 0);
         grid.add(new Label("Database Type:"), 0, 1);
         grid.add(typeCombo, 1, 1);
         grid.add(new Label("Host:"), 0, 2);
@@ -253,6 +283,10 @@ public class ConnectionDialog extends Dialog<ConnectionInfo> {
             list.remove(list.size() - 1);
         }
 
+        saveAllRecentConnections(list);
+    }
+
+    private void saveAllRecentConnections(java.util.List<RecentConnection> list) {
         // Save to preferences
         for (int i = 0; i < MAX_RECENT; i++) {
             if (i < list.size()) {

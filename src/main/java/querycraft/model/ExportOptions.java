@@ -25,10 +25,13 @@ public class ExportOptions {
     }
 
     public enum Encoding {
-        UTF_8("UTF-8", StandardCharsets.UTF_8),
         UTF_8_BOM("UTF-8 with BOM", StandardCharsets.UTF_8, true),
+        UTF_8("UTF-8", StandardCharsets.UTF_8),
         TIS_620("TIS-620 (Thai Windows)", Charset.forName("TIS-620")),
-        WINDOWS_874("Windows-874", Charset.forName("Windows-874"));
+        WINDOWS_874("Windows-874", Charset.forName("Windows-874")),
+        UTF_16LE_BOM("UTF-16LE with BOM (Unicode)", StandardCharsets.UTF_16LE, true),
+        ASCII("US-ASCII", StandardCharsets.US_ASCII),
+        ISO_8859_1("ISO-8859-1 (Western)", StandardCharsets.ISO_8859_1);
 
         private final String displayName;
         private final Charset charset;
@@ -62,7 +65,8 @@ public class ExportOptions {
         COMMA(",", "Comma (,)", ","),
         SEMICOLON(";", "Semicolon (;)", ";"),
         TAB("\t", "Tab", "\\t"),
-        PIPE("|", "Pipe (|)", "|");
+        PIPE("|", "Pipe (|)", "|"),
+        OTHER("", "Other (Custom)", "");
 
         private final String value;
         private final String displayName;
@@ -89,8 +93,9 @@ public class ExportOptions {
     }
 
     private CsvFormat format = CsvFormat.STANDARD;
-    private Encoding encoding = Encoding.UTF_8;
+    private Encoding encoding = Encoding.UTF_8_BOM;
     private Delimiter delimiter = Delimiter.COMMA;
+    private String customDelimiter = "";
     private boolean includeHeader = true;
     private String dateFormat = "yyyy-MM-dd HH:mm:ss";
     private String nullValue = "";
@@ -112,12 +117,31 @@ public class ExportOptions {
         this.encoding = encoding;
     }
 
+    public Charset getEffectiveCharset() {
+        return encoding.getCharset();
+    }
+
     public Delimiter getDelimiter() {
         return delimiter;
     }
 
     public void setDelimiter(Delimiter delimiter) {
         this.delimiter = delimiter;
+    }
+
+    public String getCustomDelimiter() {
+        return customDelimiter;
+    }
+
+    public void setCustomDelimiter(String customDelimiter) {
+        this.customDelimiter = customDelimiter;
+    }
+
+    public String getEffectiveDelimiter() {
+        if (delimiter == Delimiter.OTHER) {
+            return customDelimiter != null && !customDelimiter.isEmpty() ? customDelimiter : ",";
+        }
+        return delimiter.getValue();
     }
 
     public boolean isIncludeHeader() {

@@ -36,8 +36,22 @@ public enum DatabaseType {
         return defaultPort;
     }
 
+    public String buildUrl(String host, int port, String database, boolean useSSL) {
+        String url = String.format(urlFormat, host, port, database);
+        if (useSSL) {
+            if (this == POSTGRESQL) {
+                url += (url.contains("?") ? "&" : "?") + "sslmode=require";
+            } else if (this == MYSQL) {
+                url = url.replace("useSSL=false", "useSSL=true");
+            } else if (this == MSSQL) {
+                url += ";encrypt=true;trustServerCertificate=true";
+            }
+        }
+        return url;
+    }
+
     public String buildUrl(String host, int port, String database) {
-        return String.format(urlFormat, host, port, database);
+        return buildUrl(host, port, database, false);
     }
 
     @Override

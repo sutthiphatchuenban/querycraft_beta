@@ -19,9 +19,9 @@ public class CsvExporter {
      * Export query result to CSV file with specified options.
      */
     public static void export(QueryResult result, File file, ExportOptions options) throws IOException {
-        Charset charset = options.getEncoding().getCharset();
+        Charset charset = options.getEffectiveCharset();
         boolean withBom = options.getEncoding().isWithBom();
-        String delimiter = options.getDelimiter().getValue();
+        String delimiter = options.getEffectiveDelimiter();
 
         try (OutputStream os = new FileOutputStream(file);
              Writer writer = new OutputStreamWriter(os, charset)) {

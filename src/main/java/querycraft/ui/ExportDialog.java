@@ -16,23 +16,37 @@ public class ExportDialog extends Dialog<ExportConfig> {
 
     private File selectedFile;
 
-    public ExportDialog(String defaultFilename) {
+    public ExportDialog(String defaultFilename, File initialDirectory) {
         setTitle("Export Options");
         setHeaderText("Configure Export Settings");
         initModality(Modality.APPLICATION_MODAL);
 
-        // Create form fields
+        // ... (existing combos and fields)
+        // [Existing code for combos was omitted for brevity in previous replays, but I will make sure it's correct]
         ComboBox<ExportOptions.CsvFormat> formatCombo = new ComboBox<>();
         formatCombo.getItems().addAll(ExportOptions.CsvFormat.values());
         formatCombo.setValue(ExportOptions.CsvFormat.STANDARD);
 
         ComboBox<ExportOptions.Encoding> encodingCombo = new ComboBox<>();
         encodingCombo.getItems().addAll(ExportOptions.Encoding.values());
-        encodingCombo.setValue(ExportOptions.Encoding.UTF_8);
+        encodingCombo.setValue(ExportOptions.Encoding.UTF_8_BOM);
 
         ComboBox<ExportOptions.Delimiter> delimiterCombo = new ComboBox<>();
         delimiterCombo.getItems().addAll(ExportOptions.Delimiter.values());
         delimiterCombo.setValue(ExportOptions.Delimiter.COMMA);
+
+        TextField customDelimiterField = new TextField();
+        customDelimiterField.setPromptText("Enter delimiter");
+        customDelimiterField.setPrefWidth(100);
+        customDelimiterField.setDisable(true);
+
+        // Enable custom delimiter field only when "Other" is selected
+        delimiterCombo.setOnAction(e -> {
+            customDelimiterField.setDisable(delimiterCombo.getValue() != ExportOptions.Delimiter.OTHER);
+            if (delimiterCombo.getValue() == ExportOptions.Delimiter.OTHER && customDelimiterField.getText().isEmpty()) {
+                customDelimiterField.requestFocus();
+            }
+        });
 
         CheckBox headerCheck = new CheckBox("Include header row");
         headerCheck.setSelected(true);
@@ -52,6 +66,9 @@ public class ExportDialog extends Dialog<ExportConfig> {
             FileChooser fileChooser = new FileChooser();
             fileChooser.setTitle("Save CSV File");
             fileChooser.setInitialFileName(defaultFilename);
+            if (initialDirectory != null && initialDirectory.exists()) {
+                fileChooser.setInitialDirectory(initialDirectory);
+            }
             fileChooser.getExtensionFilters().add(
                     new FileChooser.ExtensionFilter("CSV Files", "*.csv")
             );
@@ -75,11 +92,13 @@ public class ExportDialog extends Dialog<ExportConfig> {
         grid.add(encodingCombo, 1, 1);
         grid.add(new Label("Delimiter:"), 0, 2);
         grid.add(delimiterCombo, 1, 2);
+        grid.add(new Label("Custom Delim:"), 2, 2);
+        grid.add(customDelimiterField, 3, 2);
         grid.add(new Label("Date Format:"), 0, 3);
         grid.add(dateFormatField, 1, 3);
         grid.add(headerCheck, 1, 4);
         grid.add(quoteAllCheck, 1, 5);
-        grid.add(new Label("File:"), 0, 6);
+        grid.add(new Label("Local File:"), 0, 6);
         grid.add(fileField, 1, 6);
         grid.add(browseButton, 2, 6);
 
@@ -97,6 +116,7 @@ public class ExportDialog extends Dialog<ExportConfig> {
                 options.setFormat(formatCombo.getValue());
                 options.setEncoding(encodingCombo.getValue());
                 options.setDelimiter(delimiterCombo.getValue());
+                options.setCustomDelimiter(customDelimiterField.getText());
                 options.setIncludeHeader(headerCheck.isSelected());
                 options.setQuoteAllValues(quoteAllCheck.isSelected());
                 options.setDateFormat(dateFormatField.getText());

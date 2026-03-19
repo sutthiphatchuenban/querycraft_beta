@@ -6,6 +6,7 @@ import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
+import javafx.scene.input.*;
 import javafx.stage.FileChooser;
 import querycraft.model.*;
 import querycraft.service.DatabaseConnectionService;
@@ -38,6 +39,9 @@ public class MainController extends BorderPane {
 
     // Current query result
     private QueryResult currentResult;
+
+    // Persist last directory for the session
+    private File lastExportDirectory;
 
     public MainController() {
         this.connectionService = DatabaseConnectionService.getInstance();
@@ -142,7 +146,46 @@ public class MainController extends BorderPane {
         // Result table
         resultTable = new TableView<>();
         resultTable.setPlaceholder(new Label("Execute a query to see results"));
+        resultTable.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
+        resultTable.getSelectionModel().setCellSelectionEnabled(true);
         VBox.setVgrow(resultTable, Priority.ALWAYS);
+
+        // Add copy context menu
+        MenuItem copyItem = new MenuItem("Copy");
+        copyItem.setAccelerator(new KeyCodeCombination(KeyCode.C, KeyCombination.CONTROL_ANY));
+        copyItem.setOnAction(e -> copySelectionToClipboard());
+
+        MenuItem clearSelectionItem = new MenuItem("Clear Selection");
+        clearSelectionItem.setOnAction(e -> resultTable.getSelectionModel().clearSelection());
+
+        resultTable.setContextMenu(new ContextMenu(copyItem, clearSelectionItem));
+
+        // Keyboard shortcuts for copy and clear selection
+        resultTable.setOnKeyPressed(event -> {
+            if (event.isControlDown() && event.getCode() == KeyCode.C) {
+                copySelectionToClipboard();
+                event.consume();
+            } else if (event.getCode() == KeyCode.ESCAPE) {
+                resultTable.getSelectionModel().clearSelection();
+                event.consume();
+            }
+        });
+
+        // Toggle selection on click (allows deselecting by clicking again)
+        resultTable.setOnMouseClicked(new javafx.event.EventHandler<javafx.scene.input.MouseEvent>() {
+            @Override
+            @SuppressWarnings({"rawtypes", "unchecked"})
+            public void handle(javafx.scene.input.MouseEvent event) {
+                if (event.getClickCount() == 1 && !event.isControlDown() && !event.isShiftDown()) {
+                    TablePosition pos = resultTable.getFocusModel().getFocusedCell();
+                    if (pos != null && pos.getRow() != -1) {
+                        if (resultTable.getSelectionModel().isSelected(pos.getRow(), pos.getTableColumn())) {
+                            resultTable.getSelectionModel().clearSelection(pos.getRow(), pos.getTableColumn());
+                        }
+                    }
+                }
+            }
+        });
 
         // Export button bar
         HBox exportBar = new HBox(10);
@@ -374,11 +417,12 @@ public class MainController extends BorderPane {
             }
 
             String defaultFilename = CsvExporter.generateFilename("export", "csv");
-            ExportDialog dialog = new ExportDialog(defaultFilename);
+            ExportDialog dialog = new ExportDialog(defaultFilename, lastExportDirectory);
             dialog.initOwner(getScene().getWindow());
 
             ExportConfig config = dialog.showAndWait().orElse(null);
             if (config != null) {
+                lastExportDirectory = config.getFile().getParentFile();
                 CsvExporter.export(currentResult, config.getFile(), config.getOptions());
                 setStatus("Exported to " + config.getFile().getName());
 
@@ -419,12 +463,16 @@ public class MainController extends BorderPane {
             FileChooser fileChooser = new FileChooser();
             fileChooser.setTitle("Save SQL File");
             fileChooser.setInitialFileName(SqlInsertGenerator.generateTableName(currentResult) + ".sql");
+            if (lastExportDirectory != null && lastExportDirectory.exists()) {
+                fileChooser.setInitialDirectory(lastExportDirectory);
+            }
             fileChooser.getExtensionFilters().add(
                     new FileChooser.ExtensionFilter("SQL Files", "*.sql")
             );
 
             File file = fileChooser.showSaveDialog(getScene().getWindow());
             if (file != null) {
+                lastExportDirectory = file.getParentFile();
                 SqlInsertGenerator.generate(currentResult, file, tableName.trim());
                 setStatus("SQL saved to " + file.getName());
 
@@ -438,6 +486,35 @@ public class MainController extends BorderPane {
             e.printStackTrace();
             showError("Generation Failed", e);
         }
+    }
+
+    @SuppressWarnings("rawtypes")
+    private void copySelectionToClipboard() {
+        ObservableList<TablePosition> selectedCells = resultTable.getSelectionModel().getSelectedCells();
+        if (selectedCells.isEmpty()) return;
+
+        StringBuilder sb = new StringBuilder();
+        int lastRow = -1;
+
+        for (TablePosition pos : selectedCells) {
+            int row = pos.getRow();
+            int col = pos.getColumn();
+            Object value = resultTable.getColumns().get(col).getCellData(row);
+
+            if (lastRow != -1) {
+                if (row != lastRow) {
+                    sb.append("\n");
+                } else {
+                    sb.append("\t");
+                }
+            }
+            sb.append(value == null ? "" : value.toString());
+            lastRow = row;
+        }
+
+        final ClipboardContent content = new ClipboardContent();
+        content.putString(sb.toString());
+        Clipboard.getSystemClipboard().setContent(content);
     }
 
     private void setStatus(String message) {

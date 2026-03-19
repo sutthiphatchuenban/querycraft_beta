@@ -12,17 +12,23 @@ public class ConnectionInfo {
     private String database;
     private String username;
     private String password;
+    private boolean useSSL;
 
     public ConnectionInfo() {
     }
 
     public ConnectionInfo(DatabaseType databaseType, String host, int port, String database, String username, String password) {
+        this(databaseType, host, port, database, username, password, false);
+    }
+
+    public ConnectionInfo(DatabaseType databaseType, String host, int port, String database, String username, String password, boolean useSSL) {
         this.databaseType = databaseType;
         this.host = host;
         this.port = port;
         this.database = database;
         this.username = username;
         this.password = password;
+        this.useSSL = useSSL;
     }
 
     public DatabaseType getDatabaseType() {
@@ -69,15 +75,19 @@ public class ConnectionInfo {
         return password;
     }
 
-    public void setPassword(String password) {
-        this.password = password;
+    public boolean isUseSSL() {
+        return useSSL;
+    }
+
+    public void setUseSSL(boolean useSSL) {
+        this.useSSL = useSSL;
     }
 
     public String getJdbcUrl() {
         if (databaseType == null) {
             throw new IllegalStateException("Database type must be set");
         }
-        return databaseType.buildUrl(host, port, database);
+        return databaseType.buildUrl(host, port, database, useSSL);
     }
 
     @Override

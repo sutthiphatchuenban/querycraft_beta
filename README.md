@@ -2,13 +2,6 @@
 
 QueryCraft is a JavaFX-based desktop application for database querying with support for multiple database engines, result preview, CSV export with customizable options, and SQL INSERT statement generation.
 
-## 📥 Download
-
-**[Download QueryCraft.zip](build_output/QueryCraft.zip)** - *Ready-to-use portable version for Windows.*
-
----
-
-
 ## Features
 
 ### Database Support

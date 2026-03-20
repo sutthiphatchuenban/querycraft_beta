@@ -5,6 +5,7 @@ import javafx.geometry.Insets;
 import javafx.scene.control.*;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.StackPane;
 import javafx.stage.Modality;
 import querycraft.model.ConnectionInfo;
 import querycraft.model.DatabaseType;
@@ -102,8 +103,35 @@ public class ConnectionDialog extends Dialog<ConnectionInfo> {
         usernameField.setPrefWidth(300);
         usernameField.setPrefHeight(30);
         PasswordField passwordField = new PasswordField();
-        passwordField.setPrefWidth(300);
+        passwordField.setPrefWidth(255);
         passwordField.setPrefHeight(30);
+
+        TextField passwordTextField = new TextField();
+        passwordTextField.setPrefWidth(255);
+        passwordTextField.setPrefHeight(30);
+        passwordTextField.setManaged(false);
+        passwordTextField.setVisible(false);
+        passwordTextField.textProperty().bindBidirectional(passwordField.textProperty());
+
+        ToggleButton showPasswordBtn = new ToggleButton("\uD83D\uDC41");
+        showPasswordBtn.setPrefWidth(40);
+        showPasswordBtn.setPrefHeight(30);
+        showPasswordBtn.setOnAction(e -> {
+            if (showPasswordBtn.isSelected()) {
+                passwordTextField.setVisible(true);
+                passwordTextField.setManaged(true);
+                passwordField.setVisible(false);
+                passwordField.setManaged(false);
+            } else {
+                passwordTextField.setVisible(false);
+                passwordTextField.setManaged(false);
+                passwordField.setVisible(true);
+                passwordField.setManaged(true);
+            }
+        });
+
+        HBox passBox = new HBox(5, new StackPane(passwordField, passwordTextField), showPasswordBtn);
+        passBox.setPrefWidth(300);
         CheckBox sslCheck = new CheckBox("Use SSL (Required for Neon/Cloud)");
         CheckBox rememberCheck = new CheckBox("Remember Connection");
         rememberCheck.setSelected(true); // Default to checked as user wants history
@@ -161,7 +189,7 @@ public class ConnectionDialog extends Dialog<ConnectionInfo> {
         grid.add(new Label("Username:"), 0, 5);
         grid.add(usernameField, 1, 5);
         grid.add(new Label("Password:"), 0, 6);
-        grid.add(passwordField, 1, 6);
+        grid.add(passBox, 1, 6);
         grid.add(sslCheck, 1, 7);
         grid.add(rememberCheck, 1, 8);
 

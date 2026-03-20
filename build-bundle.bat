@@ -16,11 +16,12 @@ mkdir build_output
 
 REM 2. Setup Paths
 set MODULE_PATH=lib\javafx-base-21-win.jar;lib\javafx-controls-21-win.jar;lib\javafx-graphics-21-win.jar;lib\javafx-fxml-21-win.jar
-set CLASSPATH=lib\mysql-connector-j-8.3.0.jar;lib\postgresql-42.7.2.jar;lib\mssql-jdbc-12.6.1.jre11.jar;lib\commons-csv-1.10.0.jar
+set RICHTEXTFX_CP=lib\richtextfx-0.11.2.jar;lib\reactfx-2.0-M5.jar;lib\undofx-2.1.1.jar;lib\flowless-0.7.2.jar;lib\wellbehavedfx-0.3.3.jar
+set CLASSPATH=%RICHTEXTFX_CP%;lib\mysql-connector-j-8.3.0.jar;lib\postgresql-42.7.2.jar;lib\mssql-jdbc-12.6.1.jre11.jar;lib\commons-csv-1.10.0.jar
 
 REM 3. Compile Java source files
 echo [2/5] Compiling Java source files...
-javac --module-path "%MODULE_PATH%" --add-modules javafx.controls,javafx.fxml,javafx.graphics ^
+javac -encoding UTF-8 --module-path "%MODULE_PATH%" --add-modules javafx.controls,javafx.fxml,javafx.graphics ^
       -cp "%CLASSPATH%" -d target\classes ^
       src\main\java\querycraft\*.java ^
       src\main\java\querycraft\model\*.java ^

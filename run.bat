@@ -70,37 +70,64 @@ if not exist "lib\commons-csv-1.10.0.jar" (
     if exist "lib\commons-csv-1.10.0.jar" echo [OK] Commons CSV downloaded
 )
 
+REM === Download RichTextFX and Dependencies ===
+if not exist "lib\richtextfx-0.11.2.jar" (
+    echo Downloading RichTextFX 0.11.2...
+    powershell -Command "& {$progressPreference='silentlyContinue'; Invoke-WebRequest -Uri 'https://repo1.maven.org/maven2/org/fxmisc/richtext/richtextfx/0.11.2/richtextfx-0.11.2.jar' -OutFile 'lib\richtextfx-0.11.2.jar'}"
+)
+if not exist "lib\reactfx-2.0-M5.jar" (
+    echo Downloading ReactFX...
+    powershell -Command "& {$progressPreference='silentlyContinue'; Invoke-WebRequest -Uri 'https://repo1.maven.org/maven2/org/reactfx/reactfx/2.0-M5/reactfx-2.0-M5.jar' -OutFile 'lib\reactfx-2.0-M5.jar'}"
+)
+if not exist "lib\undofx-2.1.1.jar" (
+    echo Downloading UndoFX...
+    powershell -Command "& {$progressPreference='silentlyContinue'; Invoke-WebRequest -Uri 'https://repo1.maven.org/maven2/org/fxmisc/undo/undofx/2.1.1/undofx-2.1.1.jar' -OutFile 'lib\undofx-2.1.1.jar'}"
+)
+if not exist "lib\flowless-0.7.2.jar" (
+    echo Downloading Flowless...
+    powershell -Command "& {$progressPreference='silentlyContinue'; Invoke-WebRequest -Uri 'https://repo1.maven.org/maven2/org/fxmisc/flowless/flowless/0.7.2/flowless-0.7.2.jar' -OutFile 'lib\flowless-0.7.2.jar'}"
+)
+if not exist "lib\wellbehavedfx-0.3.3.jar" (
+    echo Downloading WellBehavedFX...
+    powershell -Command "& {$progressPreference='silentlyContinue'; Invoke-WebRequest -Uri 'https://repo1.maven.org/maven2/org/fxmisc/wellbehaved/wellbehavedfx/0.3.3/wellbehavedfx-0.3.3.jar' -OutFile 'lib\wellbehavedfx-0.3.3.jar'}"
+)
+
+echo [OK] All Libraries Checked
+
 echo.
 
 REM === Compile Java files ===
 echo Compiling Java files...
 
 set JAVAFX_CP=lib\javafx-base-21-win.jar;lib\javafx-controls-21-win.jar;lib\javafx-graphics-21-win.jar;lib\javafx-fxml-21-win.jar
+set RICHTEXTFX_CP=lib\richtextfx-0.11.2.jar;lib\reactfx-2.0-M5.jar;lib\undofx-2.1.1.jar;lib\flowless-0.7.2.jar;lib\wellbehavedfx-0.3.3.jar
 set LIBS_CP=lib\mysql-connector-j-8.3.0.jar;lib\postgresql-42.7.2.jar;lib\mssql-jdbc-12.6.1.jre11.jar;lib\commons-csv-1.10.0.jar
+
+set FULL_CP=%JAVAFX_CP%;%RICHTEXTFX_CP%;%LIBS_CP%
 
 REM Compile model classes
 echo - Compiling model classes...
-javac -cp "%JAVAFX_CP%;%LIBS_CP%" -d target\classes src\main\java\querycraft\model\*.java 2>nul
+javac -encoding UTF-8 -cp "%JAVAFX_CP%;%LIBS_CP%" -d target\classes src\main\java\querycraft\model\*.java 2>nul
 if errorlevel 1 goto compile_error
 
 REM Compile service classes
 echo - Compiling service classes...
-javac -cp "%JAVAFX_CP%;%LIBS_CP%;target\classes" -d target\classes src\main\java\querycraft\service\*.java 2>nul
+javac -encoding UTF-8 -cp "%FULL_CP%;target\classes" -d target\classes src\main\java\querycraft\service\*.java 2>nul
 if errorlevel 1 goto compile_error
 
 REM Compile util classes
 echo - Compiling util classes...
-javac -cp "%JAVAFX_CP%;%LIBS_CP%;target\classes" -d target\classes src\main\java\querycraft\util\*.java 2>nul
+javac -encoding UTF-8 -cp "%FULL_CP%;target\classes" -d target\classes src\main\java\querycraft\util\*.java 2>nul
 if errorlevel 1 goto compile_error
 
 REM Compile ui classes
 echo - Compiling ui classes...
-javac -cp "%JAVAFX_CP%;%LIBS_CP%;target\classes" -d target\classes src\main\java\querycraft\ui\*.java 2>nul
+javac -encoding UTF-8 -cp "%FULL_CP%;target\classes" -d target\classes src\main\java\querycraft\ui\*.java 2>nul
 if errorlevel 1 goto compile_error
 
 REM Compile main classes
 echo - Compiling main classes...
-javac -cp "%JAVAFX_CP%;%LIBS_CP%;target\classes" -d target\classes src\main\java\querycraft\*.java 2>nul
+javac -encoding UTF-8 -cp "%FULL_CP%;target\classes" -d target\classes src\main\java\querycraft\*.java 2>nul
 if errorlevel 1 goto compile_error
 
 echo [OK] Compilation successful
@@ -114,7 +141,7 @@ echo.
 
 REM Build module path for JavaFX
 set MODULE_PATH=lib\javafx-base-21-win.jar;lib\javafx-controls-21-win.jar;lib\javafx-graphics-21-win.jar;lib\javafx-fxml-21-win.jar
-set CLASSPATH=target\classes;lib\mysql-connector-j-8.3.0.jar;lib\postgresql-42.7.2.jar;lib\mssql-jdbc-12.6.1.jre11.jar;lib\commons-csv-1.10.0.jar
+set CLASSPATH=target\classes;%RICHTEXTFX_CP%;lib\mysql-connector-j-8.3.0.jar;lib\postgresql-42.7.2.jar;lib\mssql-jdbc-12.6.1.jre11.jar;lib\commons-csv-1.10.0.jar
 
 REM Run with JavaFX modules
 java --module-path "%MODULE_PATH%" --add-modules javafx.controls,javafx.fxml,javafx.graphics -cp "%CLASSPATH%" querycraft.QueryCraftApp

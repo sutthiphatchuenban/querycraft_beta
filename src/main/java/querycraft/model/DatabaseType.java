@@ -54,6 +54,44 @@ public enum DatabaseType {
         return buildUrl(host, port, database, false);
     }
 
+    /**
+     * Get the SQL query to list all tables in the current database.
+     */
+    public String getShowTablesQuery() {
+        switch (this) {
+            case MYSQL:
+                return "SHOW TABLES";
+            case POSTGRESQL:
+                return "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE' ORDER BY table_name";
+            case MSSQL:
+                return "SELECT name FROM sys.tables ORDER BY name";
+            default:
+                return "";
+        }
+    }
+
+    /**
+     * Get the SQL query to describe a table's structure.
+     */
+    public String getDescribeTableQuery(String tableName) {
+        switch (this) {
+            case MYSQL:
+                return "DESCRIBE " + tableName;
+            case POSTGRESQL:
+                return "SELECT column_name, data_type, character_maximum_length, is_nullable, column_default " +
+                       "FROM information_schema.columns " +
+                       "WHERE table_name = '" + tableName + "' " +
+                       "ORDER BY ordinal_position";
+            case MSSQL:
+                return "SELECT COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH, IS_NULLABLE, COLUMN_DEFAULT " +
+                       "FROM INFORMATION_SCHEMA.COLUMNS " +
+                       "WHERE TABLE_NAME = '" + tableName + "' " +
+                       "ORDER BY ORDINAL_POSITION";
+            default:
+                return "";
+        }
+    }
+
     @Override
     public String toString() {
         return displayName;

@@ -27,8 +27,9 @@ public class MainController extends BorderPane {
     // UI Components
     private Label statusLabel;
     private Label dbInfoLabel;
-    private TextArea queryTextArea;
+    private SqlEditor queryEditor;
     private TableView<Object[]> resultTable;
+    private TextField filterField;
     private Label resultInfoLabel;
     private Button connectButton;
     private Button executeSelectButton;
@@ -36,9 +37,15 @@ public class MainController extends BorderPane {
     private Button exportCsvButton;
     private Button generateSqlButton;
     private Button disconnectButton;
+    private ListView<String> tableListView;
+    private ListView<String> historyListView;
+    private ObservableList<String> historyData = FXCollections.observableArrayList();
 
     // Current query result
     private QueryResult currentResult;
+    private ObservableList<Object[]> masterData = FXCollections.observableArrayList();
+    private int currentPage = 0;
+    private static final int PAGE_SIZE = 100;
 
     // Persist last directory for the session
     private File lastExportDirectory;
@@ -56,6 +63,13 @@ public class MainController extends BorderPane {
         HBox topBar = createTopBar();
         setTop(topBar);
 
+        // SplitPane for Sidebar and Main Content
+        SplitPane mainSplitPane = new SplitPane();
+
+        // Sidebar - Tables List
+        VBox sidebar = createTableSidebar();
+        mainSplitPane.getItems().add(sidebar);
+
         // Center section - Query and results
         SplitPane centerPane = new SplitPane();
         centerPane.setOrientation(javafx.geometry.Orientation.VERTICAL);
@@ -69,7 +83,10 @@ public class MainController extends BorderPane {
         centerPane.getItems().add(resultBox);
         centerPane.setDividerPositions(0.3);
 
-        setCenter(centerPane);
+        mainSplitPane.getItems().add(centerPane);
+        mainSplitPane.setDividerPositions(0.2);
+
+        setCenter(mainSplitPane);
 
         // Bottom section - Status bar
         HBox statusBar = createStatusBar();
@@ -108,10 +125,10 @@ public class MainController extends BorderPane {
 
         Label label = new Label("SQL Query:");
 
-        queryTextArea = new TextArea();
-        queryTextArea.setPromptText("Enter your SQL query here...\nExample: SELECT * FROM users LIMIT 100");
-        queryTextArea.setPrefRowCount(6);
-        VBox.setVgrow(queryTextArea, Priority.ALWAYS);
+        queryEditor = new SqlEditor();
+        queryEditor.setPlaceholder(new Label("Enter your SQL query here...\nExample: SELECT * FROM users LIMIT 100"));
+        queryEditor.setPrefHeight(200);
+        VBox.setVgrow(queryEditor, Priority.ALWAYS);
 
         // Button bar for query execution
         HBox buttonBar = new HBox(10);
@@ -128,17 +145,34 @@ public class MainController extends BorderPane {
 
         Button clearButton = new Button("Clear");
         clearButton.getStyleClass().add("button-neutral");
-        clearButton.setOnAction(e -> queryTextArea.clear());
+        clearButton.setOnAction(e -> queryEditor.clear());
 
-        buttonBar.getChildren().addAll(executeSelectButton, executeDeleteButton, clearButton);
+        Button formatButton = new Button("Format SQL");
+        formatButton.getStyleClass().add("button-neutral");
+        formatButton.setOnAction(e -> formatSql());
 
-        box.getChildren().addAll(label, queryTextArea, buttonBar);
+        buttonBar.getChildren().addAll(executeSelectButton, executeDeleteButton, clearButton, formatButton);
+
+        box.getChildren().addAll(label, queryEditor, buttonBar);
         return box;
     }
 
     private VBox createResultSection() {
         VBox box = new VBox(5);
         box.setPadding(new Insets(10));
+
+        // Search/Filter Bar
+        HBox filterBar = new HBox(10);
+        filterBar.setPadding(new Insets(0, 0, 5, 0));
+        filterBar.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+        
+        Label filterLabel = new Label("Filter Results:");
+        filterField = new TextField();
+        filterField.setPromptText("Type to filter data...");
+        HBox.setHgrow(filterField, Priority.ALWAYS);
+        filterField.textProperty().addListener((obs, oldVal, newVal) -> applyFilter(newVal));
+        
+        filterBar.getChildren().addAll(filterLabel, filterField);
 
         // Result info label
         resultInfoLabel = new Label("No results");
@@ -200,10 +234,97 @@ public class MainController extends BorderPane {
         generateSqlButton.setOnAction(e -> generateSqlInserts());
         generateSqlButton.setDisable(true);
 
+        // Pagination Bar
+        HBox paginationBar = new HBox(10);
+        paginationBar.setAlignment(javafx.geometry.Pos.CENTER);
+        paginationBar.setPadding(new Insets(5, 0, 0, 0));
+        
+        Button prevButton = new Button("Previous");
+        prevButton.setOnAction(e -> changePage(-1));
+        
+        Button nextButton = new Button("Next");
+        nextButton.setOnAction(e -> changePage(1));
+        
+        paginationBar.getChildren().addAll(prevButton, nextButton);
+
         exportBar.getChildren().addAll(exportCsvButton, generateSqlButton);
 
-        box.getChildren().addAll(resultInfoLabel, resultTable, exportBar);
+        box.getChildren().addAll(filterBar, resultInfoLabel, resultTable, paginationBar, exportBar);
         return box;
+    }
+
+    private VBox createTableSidebar() {
+        VBox sidebar = new VBox(10);
+        sidebar.getStyleClass().add("sidebar");
+        sidebar.setPadding(new Insets(10));
+        sidebar.setMinWidth(200);
+        sidebar.setPrefWidth(220);
+
+        Label label = new Label("Tables");
+        label.getStyleClass().add("sidebar-header");
+        
+        tableListView = new ListView<>();
+        tableListView.getStyleClass().add("sidebar-list");
+        VBox.setVgrow(tableListView, Priority.ALWAYS);
+        
+        tableListView.setOnMouseClicked(e -> {
+            if (e.getClickCount() == 2) {
+                String selectedTable = tableListView.getSelectionModel().getSelectedItem();
+                if (selectedTable != null) {
+                    queryEditor.replaceText("SELECT * FROM " + selectedTable + " LIMIT 100");
+                }
+            }
+        });
+
+        // Context menu for table list
+        ContextMenu contextMenu = new ContextMenu();
+        MenuItem describeItem = new MenuItem("Describe Structure");
+        describeItem.setOnAction(e -> {
+            String selectedTable = tableListView.getSelectionModel().getSelectedItem();
+            if (selectedTable != null) {
+                describeTable(selectedTable);
+            }
+        });
+        
+        MenuItem selectItem = new MenuItem("SELECT * (Top 100)");
+        selectItem.setOnAction(e -> {
+            String selectedTable = tableListView.getSelectionModel().getSelectedItem();
+            if (selectedTable != null) {
+                queryEditor.replaceText("SELECT * FROM " + selectedTable + " LIMIT 100");
+                executeQuery(false);
+            }
+        });
+
+        contextMenu.getItems().addAll(describeItem, selectItem);
+        tableListView.setContextMenu(contextMenu);
+
+        Button refreshBtn = new Button("Refresh Tables");
+        refreshBtn.setMaxWidth(Double.MAX_VALUE);
+        refreshBtn.setOnAction(e -> fetchTables());
+
+        sidebar.getChildren().addAll(label, tableListView, refreshBtn);
+
+        // History Section
+        Label historyLabel = new Label("Recent Queries");
+        historyLabel.getStyleClass().add("sidebar-header");
+        historyLabel.setPadding(new Insets(20, 0, 10, 0));
+        
+        historyListView = new ListView<>(historyData);
+        historyListView.getStyleClass().add("sidebar-list");
+        historyListView.setPrefHeight(300);
+        VBox.setVgrow(historyListView, Priority.ALWAYS);
+        
+        historyListView.setOnMouseClicked(e -> {
+            if (e.getClickCount() == 2) {
+                String selectedQuery = historyListView.getSelectionModel().getSelectedItem();
+                if (selectedQuery != null) {
+                    queryEditor.replaceText(selectedQuery);
+                }
+            }
+        });
+
+        sidebar.getChildren().addAll(historyLabel, historyListView);
+        return sidebar;
     }
 
     private HBox createStatusBar() {
@@ -238,6 +359,7 @@ public class MainController extends BorderPane {
             setStatus("Connecting to " + info.getDatabaseType().getDisplayName() + "...");
             connectionService.connect(info);
             updateConnectionStatus();
+            fetchTables();
             setStatus("Connected to " + info);
         } catch (Throwable e) {
             e.printStackTrace();
@@ -275,11 +397,14 @@ public class MainController extends BorderPane {
     }
 
     private void executeQuery(boolean isDelete) {
-        String sql = queryTextArea.getText().trim();
+        String sql = queryEditor.getText().trim();
         if (sql.isEmpty()) {
             showError("Empty Query", "Please enter a SQL query.");
             return;
         }
+
+        // Add to history
+        addToHistory(sql);
 
         // Validate query
         QueryExecutorService.ValidationResult validation = queryExecutor.validateQuery(sql);
@@ -384,6 +509,11 @@ public class MainController extends BorderPane {
             // Enable export buttons
             exportCsvButton.setDisable(false);
             generateSqlButton.setDisable(false);
+
+            // Setup Pagination
+            masterData.setAll(result.getRows());
+            currentPage = 0;
+            updateTableData();
         } else {
             // Non-SELECT query result
             resultInfoLabel.setText(String.format("Affected %d rows (completed in %d ms)",
@@ -515,6 +645,153 @@ public class MainController extends BorderPane {
         final ClipboardContent content = new ClipboardContent();
         content.putString(sb.toString());
         Clipboard.getSystemClipboard().setContent(content);
+    }
+
+    private void applyFilter(String filter) {
+        if (currentResult == null || currentResult.getRows() == null) return;
+        
+        if (filter == null || filter.isEmpty()) {
+            masterData.setAll(currentResult.getRows());
+        } else {
+            String lowerFilter = filter.toLowerCase();
+            java.util.List<Object[]> filtered = currentResult.getRows().stream()
+                    .filter(row -> {
+                        for (Object cell : row) {
+                            if (cell != null && cell.toString().toLowerCase().contains(lowerFilter)) {
+                                return true;
+                            }
+                        }
+                        return false;
+                    })
+                    .collect(java.util.stream.Collectors.toList());
+            masterData.setAll(filtered);
+        }
+        
+        currentPage = 0;
+        updateTableData();
+    }
+
+    private void changePage(int delta) {
+        int totalPages = (int) Math.ceil((double) masterData.size() / PAGE_SIZE);
+        if (totalPages == 0) return;
+        
+        int newPage = currentPage + delta;
+        if (newPage >= 0 && newPage < totalPages) {
+            currentPage = newPage;
+            updateTableData();
+        }
+    }
+
+    private void updateTableData() {
+        if (masterData.isEmpty()) {
+            resultTable.getItems().clear();
+            resultInfoLabel.setText("No matching results");
+            return;
+        }
+
+        int start = currentPage * PAGE_SIZE;
+        int end = Math.min(start + PAGE_SIZE, masterData.size());
+        
+        resultTable.getItems().setAll(masterData.subList(start, end));
+        
+        int totalPages = (int) Math.ceil((double) masterData.size() / PAGE_SIZE);
+        resultInfoLabel.setText(String.format("Showing %d-%d of %d rows (Page %d of %d) | Total %d rows in result", 
+                start + 1, end, masterData.size(), currentPage + 1, totalPages, currentResult.getRowCount()));
+    }
+
+    private void fetchTables() {
+        if (!connectionService.isConnected()) return;
+        
+        DatabaseType type = connectionService.getCurrentConnectionInfo().getDatabaseType();
+        String query = type.getShowTablesQuery();
+        
+        if (query.isEmpty()) return;
+        
+        setStatus("Fetching tables...");
+        queryExecutor.executeQueryAsync(query, new QueryExecutorService.QueryCallback() {
+            @Override
+            public void onSuccess(QueryResult result) {
+                Platform.runLater(() -> {
+                    ObservableList<String> tables = FXCollections.observableArrayList();
+                    for (Object[] row : result.getRows()) {
+                        if (row.length > 0 && row[0] != null) {
+                            tables.add(row[0].toString());
+                        }
+                    }
+                    tableListView.setItems(tables);
+                    queryEditor.setTableNames(new java.util.ArrayList<>(tables));
+                    setStatus("Tables refreshed");
+                });
+            }
+
+            @Override
+            public void onError(Exception e) {
+                Platform.runLater(() -> {
+                    setStatus("Error fetching tables: " + e.getMessage());
+                });
+            }
+        });
+    }
+
+    private void describeTable(String tableName) {
+        if (!connectionService.isConnected()) return;
+        
+        DatabaseType type = connectionService.getCurrentConnectionInfo().getDatabaseType();
+        String query = type.getDescribeTableQuery(tableName);
+        
+        if (query.isEmpty()) return;
+        
+        setStatus("Describing table " + tableName + "...");
+        queryExecutor.executeQueryAsync(query, new QueryExecutorService.QueryCallback() {
+            @Override
+            public void onSuccess(QueryResult result) {
+                Platform.runLater(() -> {
+                    displayResult(result);
+                    setStatus("Described table: " + tableName);
+                });
+            }
+
+            @Override
+            public void onError(Exception e) {
+                Platform.runLater(() -> {
+                    showError("Describe Failed", "Could not describe table " + tableName + ":\n" + e.getMessage());
+                });
+            }
+        });
+    }
+
+    private void addToHistory(String sql) {
+        Platform.runLater(() -> {
+            // Remove if exists to move to top
+            historyData.remove(sql);
+            historyData.add(0, sql);
+            
+            // Keep last 50
+            if (historyData.size() > 50) {
+                historyData.remove(50);
+            }
+        });
+    }
+
+    private void formatSql() {
+        String text = queryEditor.getText().trim();
+        if (text.isEmpty()) return;
+
+        // Basic Formatting Logic
+        String formatted = text
+                .replaceAll("(?i)\\bSELECT\\b", "SELECT")
+                .replaceAll("(?i)\\bFROM\\b", "\nFROM")
+                .replaceAll("(?i)\\bWHERE\\b", "\nWHERE")
+                .replaceAll("(?i)\\bAND\\b", "\n  AND")
+                .replaceAll("(?i)\\bOR\\b", "\n  OR")
+                .replaceAll("(?i)\\bGROUP BY\\b", "\nGROUP BY")
+                .replaceAll("(?i)\\bORDER BY\\b", "\nORDER BY")
+                .replaceAll("(?i)\\bLEFT JOIN\\b", "\nLEFT JOIN")
+                .replaceAll("(?i)\\bINNER JOIN\\b", "\nINNER JOIN")
+                .replaceAll("(?i)\\bJOIN\\b", "\nJOIN")
+                .replaceAll("(?i)\\bLIMIT\\b", "\nLIMIT");
+
+        queryEditor.replaceText(formatted);
     }
 
     private void setStatus(String message) {

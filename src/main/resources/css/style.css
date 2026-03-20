@@ -218,3 +218,92 @@
     -fx-padding: 5px;
     padding: 5px;
 }
+/* SQL Highlighting for RichTextFX CodeArea */
+.sql-editor {
+    -fx-font-family: "Consolas", "Courier New", monospace;
+    -fx-font-size: 14px;
+    -fx-background-color: #FFFFFF;
+    -fx-border-color: #E2E8F0;
+    -fx-border-width: 1px;
+    -fx-border-radius: 4px;
+}
+
+.sql-editor .keyword {
+    -fx-fill: #2563EB; /* Primary blue for keywords */
+    -fx-font-weight: bold;
+}
+
+.sql-editor .string {
+    -fx-fill: #059669; /* Green for strings */
+}
+
+.sql-editor .comment {
+    -fx-fill: #94A3B8; /* Slate gray for comments */
+    -fx-font-style: italic;
+}
+
+.sql-editor .number {
+    -fx-fill: #D97706; /* Amber for numbers */
+}
+
+.sql-editor .operator {
+    -fx-fill: #DC2626; /* Red for operators */
+    -fx-font-weight: bold;
+}
+
+.sql-editor .lineno {
+    -fx-fill: #CBD5E1;
+    -fx-font-size: 12px;
+}
+
+/* Sidebar Styling */
+.sidebar {
+    -fx-background-color: #F1F5F9;
+    background-color: #F1F5F9;
+    -fx-border-color: #E2E8F0;
+    border-color: #E2E8F0;
+    -fx-border-width: 0 1 0 0;
+    border-width: 0 1 0 0;
+}
+
+.sidebar-header {
+    -fx-font-size: 16px;
+    font-size: 16px;
+    -fx-font-weight: bold;
+    font-weight: bold;
+    -fx-text-fill: #334155;
+    color: #334155;
+    -fx-padding: 0 0 10 0;
+    padding: 0 0 10 0;
+}
+
+.sidebar-list {
+    -fx-background-color: white;
+    background-color: white;
+    -fx-background-insets: 0;
+    -fx-padding: 0;
+    -fx-border-color: #E2E8F0;
+    border-color: #E2E8F0;
+    -fx-border-width: 1px;
+    border-width: 1px;
+    -fx-border-radius: 4px;
+    border-radius: 4px;
+}
+
+.sidebar-list .list-cell {
+    -fx-padding: 8px 12px;
+    padding: 8px 12px;
+    -fx-text-fill: #475569;
+    color: #475569;
+}
+
+.sidebar-list .list-cell:filled:hover {
+    -fx-background-color: #F8FAFC;
+    background-color: #F8FAFC;
+}
+
+.sidebar-list .list-cell:filled:selected {
+    -fx-background-color: #DBEAFE;
+    background-color: #DBEAFE;
+    -fx-text-fill: #2563EB;
+}

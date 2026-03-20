@@ -244,4 +244,28 @@ public class QueryExecutorService {
             return message;
         }
     }
+
+    /**
+     * Interface for query execution callbacks.
+     */
+    public interface QueryCallback {
+        void onSuccess(QueryResult result);
+        void onError(Exception e);
+    }
+
+    /**
+     * Execute a query asynchronously.
+     */
+    public void executeQueryAsync(String sql, QueryCallback callback) {
+        Thread thread = new Thread(() -> {
+            try {
+                QueryResult result = execute(sql);
+                callback.onSuccess(result);
+            } catch (Exception e) {
+                callback.onError(e);
+            }
+        });
+        thread.setDaemon(true);
+        thread.start();
+    }
 }

@@ -27,6 +27,7 @@ javac -encoding UTF-8 --module-path "%MODULE_PATH%" --add-modules javafx.control
       src\main\java\querycraft\model\*.java ^
       src\main\java\querycraft\service\*.java ^
       src\main\java\querycraft\ui\*.java ^
+      src\main\java\querycraft\ui\component\*.java ^
       src\main\java\querycraft\util\*.java
 
 if %ERRORLEVEL% neq 0 (

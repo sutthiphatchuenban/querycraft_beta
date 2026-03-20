@@ -179,7 +179,7 @@ public class MainController extends BorderPane {
 
     private void executeQuery(boolean isDelete) {
         String sql = querySection.getSqlText();
-        if (sql.isEmpty()) return;
+        if (sql == null || sql.trim().isEmpty()) return;
 
         sidebarSection.addToHistory(sql);
         
@@ -208,6 +208,7 @@ public class MainController extends BorderPane {
         }
 
         setStatus("Executing...");
+        resultSection.setLoading(true);
         queryExecutor.executeQueryAsync(sql, new QueryExecutorService.QueryCallback() {
             @Override
             public void onSuccess(QueryResult result) {
@@ -222,6 +223,7 @@ public class MainController extends BorderPane {
                 Platform.runLater(() -> {
                     showError("Query Error", e.getMessage());
                     setStatus("Error occurred");
+                    resultSection.setLoading(false);
                 });
             }
         });
@@ -260,19 +262,16 @@ public class MainController extends BorderPane {
 
     private void formatSql() {
         String text = querySection.getSqlText();
-        if (text.isEmpty()) return;
-        String formatted = text
-                .replaceAll("(?i)\\bSELECT\\b", "SELECT")
-                .replaceAll("(?i)\\bFROM\\b", "\nFROM")
-                .replaceAll("(?i)\\bWHERE\\b", "\nWHERE")
-                .replaceAll("(?i)\\bAND\\b", "\n  AND")
-                .replaceAll("(?i)\\bOR\\b", "\n  OR")
-                .replaceAll("(?i)\\bGROUP BY\\b", "\nGROUP BY")
-                .replaceAll("(?i)\\bORDER BY\\b", "\nORDER BY")
-                .replaceAll("(?i)\\bLEFT JOIN\\b", "\nLEFT JOIN")
-                .replaceAll("(?i)\\bINNER JOIN\\b", "\nINNER JOIN")
-                .replaceAll("(?i)\\bJOIN\\b", "\nJOIN")
-                .replaceAll("(?i)\\bLIMIT\\b", "\nLIMIT");
+        if (text == null || text.trim().isEmpty()) return;
+        
+        // Simple but more efficient formatter using a cleaner regex approach
+        // Note: For complex SQL, a real parser like JSqlParser would be better
+        String formatted = text.trim()
+                .replaceAll("(?i)\\s*\\b(SELECT|FROM|WHERE|GROUP BY|ORDER BY|HAVING|LIMIT|LEFT JOIN|INNER JOIN|RIGHT JOIN|JOIN|UNION|VALUES|SET|UPDATE|DELETE)\\b\\s*", "\n$1 ")
+                .replaceAll("(?i)\\s*\\b(AND|OR)\\b\\s*", "\n  $1 ")
+                .replaceAll("\\n+", "\n")
+                .trim();
+        
         querySection.setSqlText(formatted);
     }
 

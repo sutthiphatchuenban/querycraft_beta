@@ -29,6 +29,9 @@ public class ResultTableSection extends VBox {
     private final Button nextButton;
     private final Button exportCsvButton;
     private final Button generateSqlButton;
+    private final StackPane tableContainer;
+    private final ProgressIndicator loadingIndicator;
+    private final StackPane loadingOverlay;
     
     private QueryResult currentResult;
     private File lastExportDirectory;
@@ -36,6 +39,7 @@ public class ResultTableSection extends VBox {
     private final FilteredList<Object[]> filteredData = new FilteredList<>(masterData);
     private int currentPage = 0;
     private static final int PAGE_SIZE = 100;
+    private final javafx.animation.PauseTransition filterDebounce;
 
     public ResultTableSection() {
         super(5);
@@ -52,7 +56,12 @@ public class ResultTableSection extends VBox {
         filterField = new TextField();
         filterField.setPromptText("Type to filter data...");
         filterField.setPrefWidth(300);
-        filterField.textProperty().addListener((obs, oldV, newV) -> applyFilter());
+        
+        // Debounce filter input
+        filterDebounce = new javafx.animation.PauseTransition(javafx.util.Duration.millis(300));
+        filterDebounce.setOnFinished(e -> applyFilter());
+        
+        filterField.textProperty().addListener((obs, oldV, newV) -> filterDebounce.playFromStart());
 
         filterBar.getChildren().addAll(filterLabel, filterField);
 
@@ -64,6 +73,18 @@ public class ResultTableSection extends VBox {
         resultTable.getSelectionModel().setCellSelectionEnabled(true);
         resultTable.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
         resultTable.setPlaceholder(new Label("Execute a query to see results"));
+
+        // Loading Overlay
+        loadingIndicator = new ProgressIndicator();
+        loadingIndicator.setMaxSize(50, 50);
+        
+        loadingOverlay = new StackPane(loadingIndicator);
+        loadingOverlay.getStyleClass().add("loading-overlay");
+        loadingOverlay.setVisible(false);
+        loadingOverlay.setManaged(false); // Don't take space when hidden
+        
+        tableContainer = new StackPane(resultTable, loadingOverlay);
+        VBox.setVgrow(tableContainer, Priority.ALWAYS);
 
         setupTableContextMenu();
 
@@ -101,7 +122,7 @@ public class ResultTableSection extends VBox {
 
         exportBar.getChildren().addAll(exportCsvButton, generateSqlButton);
 
-        this.getChildren().addAll(filterBar, resultInfoLabel, resultTable, paginationBar, exportBar);
+        this.getChildren().addAll(filterBar, resultInfoLabel, tableContainer, paginationBar, exportBar);
     }
 
     private void setupTableContextMenu() {
@@ -132,6 +153,7 @@ public class ResultTableSection extends VBox {
         this.filterField.clear();
 
         if (result == null) {
+            setLoading(false);
             resultInfoLabel.setText("No results (Not connected or query not executed)");
             resultInfoLabel.setStyle("-fx-text-fill: #333;");
             updatePaginationButtons();
@@ -140,6 +162,7 @@ public class ResultTableSection extends VBox {
         }
 
         if (result.hasError()) {
+            setLoading(false);
             resultInfoLabel.setText("Error: " + result.getErrorMessage());
             resultInfoLabel.setStyle("-fx-text-fill: #f44336;"); // Red
             setExportButtonsEnabled(false);
@@ -147,6 +170,7 @@ public class ResultTableSection extends VBox {
         }
 
         if (result.isSelectQuery()) {
+            setLoading(false);
             // Setup columns
             for (int i = 0; i < result.getColumns().size(); i++) {
                 final int colIndex = i;
@@ -160,6 +184,7 @@ public class ResultTableSection extends VBox {
             resultInfoLabel.setStyle("-fx-text-fill: #333;");
             setExportButtonsEnabled(!result.getRows().isEmpty());
         } else {
+            setLoading(false);
             // Non-SELECT (INSERT, UPDATE, DELETE)
             resultInfoLabel.setText(String.format("Successfully executed. Affected rows: %d (in %d ms)", 
                     result.getAffectedRows(), result.getExecutionTimeMs()));
@@ -170,14 +195,20 @@ public class ResultTableSection extends VBox {
     }
 
     private void applyFilter() {
-        String filter = filterField.getText().toLowerCase();
-        filteredData.setPredicate(row -> {
-            if (filter == null || filter.isEmpty()) return true;
-            for (Object cell : row) {
-                if (cell != null && cell.toString().toLowerCase().contains(filter)) return true;
-            }
-            return false;
-        });
+        String filter = filterField.getText();
+        if (filter == null || filter.trim().isEmpty()) {
+            filteredData.setPredicate(null);
+        } else {
+            String lowerFilter = filter.toLowerCase();
+            filteredData.setPredicate(row -> {
+                for (Object cell : row) {
+                    if (cell != null && cell.toString().toLowerCase().contains(lowerFilter)) {
+                        return true;
+                    }
+                }
+                return false;
+            });
+        }
         currentPage = 0;
         updateTableData();
     }
@@ -322,5 +353,14 @@ public class ResultTableSection extends VBox {
 
     public TableView<Object[]> getTable() {
         return resultTable;
+    }
+
+    public void setLoading(boolean loading) {
+        javafx.application.Platform.runLater(() -> {
+            loadingOverlay.setVisible(loading);
+            loadingOverlay.setManaged(loading);
+            resultTable.setOpacity(loading ? 0.5 : 1.0);
+            resultTable.setDisable(loading);
+        });
     }
 }

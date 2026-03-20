@@ -54,6 +54,7 @@ public class SqlInsertGenerator {
             // Generate INSERT statements
             List<Object[]> rows = result.getRows();
             String insertPrefix = buildInsertPrefix(tableName, columns);
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
             for (int i = 0; i < rows.size(); i++) {
                 if (i > 0 && i % batchSize == 0) {
@@ -61,7 +62,7 @@ public class SqlInsertGenerator {
                 }
 
                 Object[] row = rows.get(i);
-                String values = buildValuesClause(row, columns);
+                String values = buildValuesClause(row, columns, sdf);
                 writer.write(insertPrefix + values + ";\n");
             }
 
@@ -98,6 +99,7 @@ public class SqlInsertGenerator {
 
             String insertPrefix = buildInsertPrefix(tableName, columns);
             List<Object[]> rows = result.getRows();
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
             for (int i = 0; i < rows.size(); i += rowsPerInsert) {
                 writer.write(insertPrefix);
@@ -107,7 +109,7 @@ public class SqlInsertGenerator {
                     if (j > i) {
                         writer.write(",\n");
                     }
-                    writer.write(buildValuesClause(rows.get(j), columns));
+                    writer.write(buildValuesClause(rows.get(j), columns, sdf));
                 }
 
                 writer.write(";\n\n");
@@ -132,7 +134,7 @@ public class SqlInsertGenerator {
         return sb.toString();
     }
 
-    private static String buildValuesClause(Object[] row, List<ColumnInfo> columns) {
+    private static String buildValuesClause(Object[] row, List<ColumnInfo> columns, SimpleDateFormat sdf) {
         StringBuilder sb = new StringBuilder();
         sb.append("(");
 
@@ -140,14 +142,14 @@ public class SqlInsertGenerator {
             if (i > 0) {
                 sb.append(", ");
             }
-            sb.append(formatSqlValue(row[i], columns.get(i)));
+            sb.append(formatSqlValue(row[i], columns.get(i), sdf));
         }
 
         sb.append(")");
         return sb.toString();
     }
 
-    private static String formatSqlValue(Object value, ColumnInfo columnInfo) {
+    private static String formatSqlValue(Object value, ColumnInfo columnInfo, SimpleDateFormat sdf) {
         if (value == null) {
             return "NULL";
         }
@@ -161,7 +163,6 @@ public class SqlInsertGenerator {
 
         // Date/Time types
         if (value instanceof Date) {
-            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
             return "'" + sdf.format((Date) value) + "'";
         }
 

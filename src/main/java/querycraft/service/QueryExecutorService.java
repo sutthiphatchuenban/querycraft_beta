@@ -13,6 +13,12 @@ import java.util.List;
 public class QueryExecutorService {
 
     private static final int MAX_ROWS = 10000; // Limit rows for safety
+    private static final java.util.concurrent.ExecutorService EXECUTOR = java.util.concurrent.Executors.newFixedThreadPool(4, r -> {
+        Thread t = new Thread(r);
+        t.setDaemon(true);
+        t.setName("QueryExecutor-Thread");
+        return t;
+    });
 
     private final DatabaseConnectionService connectionService;
 
@@ -89,17 +95,23 @@ public class QueryExecutorService {
      * Execute any query and auto-detect if it's SELECT or other.
      */
     public QueryResult execute(String sql) throws SQLException {
-        String trimmedSql = sql.trim().toUpperCase();
+        String cleanSql = stripComments(sql).trim().toUpperCase();
 
-        if (trimmedSql.startsWith("SELECT") || trimmedSql.startsWith("WITH")) {
+        if (cleanSql.startsWith("SELECT") || cleanSql.startsWith("WITH") || cleanSql.startsWith("SHOW") || cleanSql.startsWith("DESCRIBE") || cleanSql.startsWith("EXPLAIN")) {
             return executeSelect(sql);
-        } else if (trimmedSql.startsWith("DELETE")) {
+        } else if (cleanSql.startsWith("DELETE")) {
             return executeDelete(sql);
-        } else if (trimmedSql.startsWith("INSERT") || trimmedSql.startsWith("UPDATE")) {
+        } else if (cleanSql.startsWith("INSERT") || cleanSql.startsWith("UPDATE")) {
             return executeUpdate(sql);
         } else {
             return executeGeneric(sql);
         }
+    }
+
+    private String stripComments(String sql) {
+        if (sql == null) return "";
+        // Remove line comments (-- ...) and block comments (/* ... */)
+        return sql.replaceAll("--.*", "").replaceAll("/\\*(.|\\R)*?\\*/", "");
     }
 
     /**
@@ -198,7 +210,7 @@ public class QueryExecutorService {
      * Check if query is a DELETE statement.
      */
     public boolean isDeleteQuery(String sql) {
-        return sql != null && sql.trim().toUpperCase().startsWith("DELETE");
+        return sql != null && stripComments(sql).trim().toUpperCase().startsWith("DELETE");
     }
 
     /**
@@ -206,8 +218,8 @@ public class QueryExecutorService {
      */
     public boolean isSelectQuery(String sql) {
         if (sql == null) return false;
-        String trimmed = sql.trim().toUpperCase();
-        return trimmed.startsWith("SELECT") || trimmed.startsWith("WITH");
+        String clean = stripComments(sql).trim().toUpperCase();
+        return clean.startsWith("SELECT") || clean.startsWith("WITH") || clean.startsWith("SHOW") || clean.startsWith("DESCRIBE") || clean.startsWith("EXPLAIN");
     }
 
     private List<ColumnInfo> extractColumnInfo(ResultSetMetaData metaData, int columnCount) throws SQLException {
@@ -257,7 +269,7 @@ public class QueryExecutorService {
      * Execute a query asynchronously.
      */
     public void executeQueryAsync(String sql, QueryCallback callback) {
-        Thread thread = new Thread(() -> {
+        EXECUTOR.submit(() -> {
             try {
                 QueryResult result = execute(sql);
                 callback.onSuccess(result);
@@ -265,7 +277,12 @@ public class QueryExecutorService {
                 callback.onError(e);
             }
         });
-        thread.setDaemon(true);
-        thread.start();
+    }
+
+    /**
+     * Shutdown the executor service.
+     */
+    public static void shutdown() {
+        EXECUTOR.shutdownNow();
     }
 }

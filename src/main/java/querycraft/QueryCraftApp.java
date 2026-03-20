@@ -72,20 +72,20 @@ public class QueryCraftApp extends Application {
             @Override
             protected Void call() throws Exception {
                 updateMessage("Loading database drivers...");
-                updateProgress(0.2, 1.0);
-                Thread.sleep(800);
+                updateProgress(0.1, 1.0);
+                Thread.sleep(100);
 
                 updateMessage("Initializing JDBC services...");
-                updateProgress(0.5, 1.0);
-                Thread.sleep(800);
+                updateProgress(0.4, 1.0);
+                Thread.sleep(100);
 
                 updateMessage("Setting up UI components...");
-                updateProgress(0.8, 1.0);
-                Thread.sleep(600);
+                updateProgress(0.7, 1.0);
+                Thread.sleep(100);
 
                 updateMessage("Ready!");
                 updateProgress(1.0, 1.0);
-                Thread.sleep(300);
+                Thread.sleep(50);
 
                 return null;
             }
@@ -174,6 +174,7 @@ public class QueryCraftApp extends Application {
         // Cleanup when application closes
         try {
             querycraft.service.DatabaseConnectionService.getInstance().disconnect();
+            querycraft.service.QueryExecutorService.shutdown();
         } catch (Exception e) {
             // Ignore during shutdown
         }

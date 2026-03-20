@@ -99,35 +99,20 @@ echo.
 REM === Compile Java files ===
 echo Compiling Java files...
 
-set JAVAFX_CP=lib\javafx-base-21-win.jar;lib\javafx-controls-21-win.jar;lib\javafx-graphics-21-win.jar;lib\javafx-fxml-21-win.jar
-set RICHTEXTFX_CP=lib\richtextfx-0.11.2.jar;lib\reactfx-2.0-M5.jar;lib\undofx-2.1.1.jar;lib\flowless-0.7.2.jar;lib\wellbehavedfx-0.3.3.jar
-set LIBS_CP=lib\mysql-connector-j-8.3.0.jar;lib\postgresql-42.7.2.jar;lib\mssql-jdbc-12.6.1.jre11.jar;lib\commons-csv-1.10.0.jar
+REM === Setup Paths ===
+set MODULE_PATH=lib\javafx-base-21-win.jar;lib\javafx-controls-21-win.jar;lib\javafx-graphics-21-win.jar;lib\javafx-fxml-21-win.jar;lib\richtextfx-0.11.2.jar;lib\reactfx-2.0-M5.jar;lib\undofx-2.1.1.jar;lib\flowless-0.7.2.jar;lib\wellbehavedfx-0.3.3.jar;lib\mysql-connector-j-8.3.0.jar;lib\postgresql-42.7.2.jar;lib\mssql-jdbc-12.6.1.jre11.jar;lib\commons-csv-1.10.0.jar
 
-set FULL_CP=%JAVAFX_CP%;%RICHTEXTFX_CP%;%LIBS_CP%
+REM === Compile Java files (Modular) ===
+echo Compiling Java modules...
+javac -encoding UTF-8 --module-path "%MODULE_PATH%" -d target\classes ^
+    src\main\java\module-info.java ^
+    src\main\java\querycraft\*.java ^
+    src\main\java\querycraft\model\*.java ^
+    src\main\java\querycraft\service\*.java ^
+    src\main\java\querycraft\util\*.java ^
+    src\main\java\querycraft\ui\*.java ^
+    src\main\java\querycraft\ui\component\*.java
 
-REM Compile model classes
-echo - Compiling model classes...
-javac -encoding UTF-8 -cp "%JAVAFX_CP%;%LIBS_CP%" -d target\classes src\main\java\querycraft\model\*.java
-if errorlevel 1 goto compile_error
-
-REM Compile service classes
-echo - Compiling service classes...
-javac -encoding UTF-8 -cp "%FULL_CP%;target\classes" -d target\classes src\main\java\querycraft\service\*.java
-if errorlevel 1 goto compile_error
-
-REM Compile util classes
-echo - Compiling util classes...
-javac -encoding UTF-8 -cp "%FULL_CP%;target\classes" -d target\classes src\main\java\querycraft\util\*.java
-if errorlevel 1 goto compile_error
-
-REM Compile ui classes
-echo - Compiling ui classes...
-javac -encoding UTF-8 -cp "%FULL_CP%;target\classes" -d target\classes src\main\java\querycraft\ui\*.java src\main\java\querycraft\ui\component\*.java
-if errorlevel 1 goto compile_error
-
-REM Compile main classes
-echo - Compiling main classes...
-javac -encoding UTF-8 -cp "%FULL_CP%;target\classes" -d target\classes src\main\java\querycraft\*.java
 if errorlevel 1 goto compile_error
 
 echo [OK] Compilation successful
@@ -136,15 +121,13 @@ echo.
 echo Copying resources...
 if exist "src\main\resources" xcopy /s /e /y src\main\resources\* target\classes\
 echo [OK] Resources copied
-echo Starting QueryCraft...
+echo Starting QueryCraft (Modularized)...
 echo.
 
-REM Build module path for JavaFX
-set MODULE_PATH=lib\javafx-base-21-win.jar;lib\javafx-controls-21-win.jar;lib\javafx-graphics-21-win.jar;lib\javafx-fxml-21-win.jar
-set CLASSPATH=target\classes;%RICHTEXTFX_CP%;lib\mysql-connector-j-8.3.0.jar;lib\postgresql-42.7.2.jar;lib\mssql-jdbc-12.6.1.jre11.jar;lib\commons-csv-1.10.0.jar
-
-REM Run with JavaFX modules
-java --module-path "%MODULE_PATH%" --add-modules javafx.controls,javafx.fxml,javafx.graphics -cp "%CLASSPATH%" querycraft.QueryCraftApp
+REM Run with JPMS
+java --module-path "%MODULE_PATH%;target\classes" ^
+     --add-modules mysql.connector.j,org.postgresql.jdbc,com.microsoft.sqlserver.jdbc,wellbehavedfx ^
+     -m querycraft/querycraft.QueryCraftApp
 
 if errorlevel 1 (
     echo.

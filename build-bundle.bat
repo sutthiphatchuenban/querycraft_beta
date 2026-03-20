@@ -15,14 +15,12 @@ mkdir target\bundle_input
 mkdir build_output
 
 REM 2. Setup Paths
-set MODULE_PATH=lib\javafx-base-21-win.jar;lib\javafx-controls-21-win.jar;lib\javafx-graphics-21-win.jar;lib\javafx-fxml-21-win.jar
-set RICHTEXTFX_CP=lib\richtextfx-0.11.2.jar;lib\reactfx-2.0-M5.jar;lib\undofx-2.1.1.jar;lib\flowless-0.7.2.jar;lib\wellbehavedfx-0.3.3.jar
-set CLASSPATH=%RICHTEXTFX_CP%;lib\mysql-connector-j-8.3.0.jar;lib\postgresql-42.7.2.jar;lib\mssql-jdbc-12.6.1.jre11.jar;lib\commons-csv-1.10.0.jar
+set MODULE_PATH=lib\javafx-base-21-win.jar;lib\javafx-controls-21-win.jar;lib\javafx-graphics-21-win.jar;lib\javafx-fxml-21-win.jar;lib\richtextfx-0.11.2.jar;lib\reactfx-2.0-M5.jar;lib\undofx-2.1.1.jar;lib\flowless-0.7.2.jar;lib\wellbehavedfx-0.3.3.jar;lib\mysql-connector-j-8.3.0.jar;lib\postgresql-42.7.2.jar;lib\mssql-jdbc-12.6.1.jre11.jar;lib\commons-csv-1.10.0.jar
 
-REM 3. Compile Java source files
-echo [2/5] Compiling Java source files...
-javac -encoding UTF-8 --module-path "%MODULE_PATH%" --add-modules javafx.controls,javafx.fxml,javafx.graphics ^
-      -cp "%CLASSPATH%" -d target\classes ^
+REM 3. Compile Java source files (Modular)
+echo [2/5] Compiling Java modules...
+javac -encoding UTF-8 --module-path "%MODULE_PATH%" -d target\classes ^
+      src\main\java\module-info.java ^
       src\main\java\querycraft\*.java ^
       src\main\java\querycraft\model\*.java ^
       src\main\java\querycraft\service\*.java ^
@@ -36,31 +34,22 @@ if %ERRORLEVEL% neq 0 (
     exit /b %ERRORLEVEL%
 )
 
-REM 4. Create Manifest and JAR
-echo [3/5] Packing resources and creating JAR with Manifest...
+REM 4. Prepare Bundle Input (Hybrid Approach)
+echo [3/5] Packing resources and creating JAR...
 if exist "src\main\resources" xcopy /s /e /y src\main\resources\* target\classes\
 
-REM Build library list for Manifest Class-Path
-set MANIFEST_CP=
-for %%f in (lib\*.jar) do (
-    set MANIFEST_CP=!MANIFEST_CP! %%~nxf
-)
+REM Create a JAR for our application
+jar --create --file target\bundle_input\QueryApp.jar -C target\classes .
 
-echo Main-Class: querycraft.QueryCraftApp > manifest_temp.txt
-echo Class-Path: !MANIFEST_CP! >> manifest_temp.txt
-
-jar --create --file target\bundle_input\QueryApp.jar --manifest manifest_temp.txt -C target\classes .
-del manifest_temp.txt
-
-REM 5. Collect all libraries into bundle_input
-echo [4/5] Collecting libraries...
+REM Copy all libraries to bundle_input
 xcopy /y lib\*.jar target\bundle_input\
 
-REM 6. Create App Image using jpackage
-echo [5/5] Creating Portable App Bundle (EXE)...
+REM 5. Create App Image using jpackage
+echo [4/5] Creating App Bundle (EXE)...
 echo.
 
-REM IMPORTANT: Added jdk.charsets for Thai language support
+REM Note: We don't use --module here to avoid jlink choosing automatic modules as core.
+REM Instead we use --input and explicitly add necessary platform modules.
 jpackage ^
   --name QueryCraft ^
   --input target\bundle_input ^
@@ -68,7 +57,7 @@ jpackage ^
   --main-jar QueryApp.jar ^
   --main-class querycraft.QueryCraftApp ^
   --module-path "%MODULE_PATH%" ^
-  --add-modules javafx.controls,javafx.fxml,javafx.graphics,java.sql,java.naming,jdk.charsets ^
+  --add-modules javafx.controls,javafx.fxml,javafx.graphics,java.sql,java.naming,jdk.charsets,java.prefs,java.desktop ^
   --type app-image ^
   --icon "src\main\resources\images\logo.ico" ^
   --vendor "Antigravity" ^

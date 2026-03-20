@@ -5,14 +5,16 @@ import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
+import querycraft.model.DbTable;
 
 /**
  * Component for the sidebar that displays tables and query history.
  */
 public class SidebarSection extends VBox {
 
-    private final ListView<String> tableListView;
+    private final ListView<DbTable> tableListView;
     private final ListView<String> historyListView;
+    private final ObservableList<DbTable> tableData = FXCollections.observableArrayList();
     private final ObservableList<String> historyData = FXCollections.observableArrayList();
     private SidebarListener listener;
 
@@ -34,14 +36,14 @@ public class SidebarSection extends VBox {
         Label tablesLabel = new Label("Tables");
         tablesLabel.getStyleClass().add("sidebar-header");
         
-        tableListView = new ListView<>();
+        tableListView = new ListView<>(tableData);
         tableListView.getStyleClass().add("sidebar-list");
         VBox.setVgrow(tableListView, Priority.ALWAYS);
         
         tableListView.setOnMouseClicked(e -> {
             if (e.getClickCount() == 2 && listener != null) {
-                String selected = tableListView.getSelectionModel().getSelectedItem();
-                if (selected != null) listener.onTableDoubleClicked(selected);
+                DbTable selected = tableListView.getSelectionModel().getSelectedItem();
+                if (selected != null) listener.onTableDoubleClicked(selected.getName());
             }
         });
 
@@ -78,14 +80,14 @@ public class SidebarSection extends VBox {
         
         MenuItem describeItem = new MenuItem("Describe Structure");
         describeItem.setOnAction(e -> {
-            String selected = tableListView.getSelectionModel().getSelectedItem();
-            if (selected != null && listener != null) listener.onDescribeTableRequested(selected);
+            DbTable selected = tableListView.getSelectionModel().getSelectedItem();
+            if (selected != null && listener != null) listener.onDescribeTableRequested(selected.getName());
         });
         
         MenuItem selectItem = new MenuItem("SELECT * (Top 100)");
         selectItem.setOnAction(e -> {
-            String selected = tableListView.getSelectionModel().getSelectedItem();
-            if (selected != null && listener != null) listener.onTableDoubleClicked(selected);
+            DbTable selected = tableListView.getSelectionModel().getSelectedItem();
+            if (selected != null && listener != null) listener.onTableDoubleClicked(selected.getName());
         });
 
         contextMenu.getItems().addAll(describeItem, selectItem);
@@ -96,8 +98,8 @@ public class SidebarSection extends VBox {
         this.listener = listener;
     }
 
-    public void setTables(ObservableList<String> tables) {
-        tableListView.setItems(tables);
+    public void setTables(ObservableList<DbTable> tables) {
+        tableData.setAll(tables);
     }
 
     public void addToHistory(String sql) {

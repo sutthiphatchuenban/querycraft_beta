@@ -1,6 +1,7 @@
 package querycraft.util;
 
 import querycraft.model.ColumnInfo;
+import querycraft.model.DatabaseType;
 import querycraft.model.QueryResult;
 
 import java.io.*;
@@ -20,15 +21,15 @@ public class SqlInsertGenerator {
     /**
      * Generate SQL INSERT statements from query result.
      */
-    public static void generate(QueryResult result, File file, String tableName) throws IOException {
-        generate(result, file, tableName, DEFAULT_BATCH_SIZE, true);
+    public static void generate(QueryResult result, File file, String tableName, DatabaseType dbType) throws IOException {
+        generate(result, file, tableName, DEFAULT_BATCH_SIZE, true, dbType);
     }
 
     /**
      * Generate SQL INSERT statements with options.
      */
     public static void generate(QueryResult result, File file, String tableName,
-                                 int batchSize, boolean useTransaction) throws IOException {
+                                 int batchSize, boolean useTransaction, DatabaseType dbType) throws IOException {
 
         try (Writer writer = new OutputStreamWriter(new FileOutputStream(file), StandardCharsets.UTF_8)) {
 
@@ -48,12 +49,12 @@ public class SqlInsertGenerator {
 
             // Start transaction
             if (useTransaction) {
-                writer.write("BEGIN TRANSACTION;\n\n");
+                writer.write(dbType.getBeginTransaction() + "\n\n");
             }
 
             // Generate INSERT statements
             List<Object[]> rows = result.getRows();
-            String insertPrefix = buildInsertPrefix(tableName, columns);
+            String insertPrefix = buildInsertPrefix(tableName, columns, dbType);
             SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
             for (int i = 0; i < rows.size(); i++) {
@@ -62,13 +63,13 @@ public class SqlInsertGenerator {
                 }
 
                 Object[] row = rows.get(i);
-                String values = buildValuesClause(row, columns, sdf);
+                String values = buildValuesClause(row, columns, sdf, dbType);
                 writer.write(insertPrefix + values + ";\n");
             }
 
             // End transaction
             if (useTransaction) {
-                writer.write("\nCOMMIT;\n");
+                writer.write("\n" + dbType.getCommitTransaction() + "\n");
             }
         }
     }
@@ -77,7 +78,7 @@ public class SqlInsertGenerator {
      * Generate batch INSERT statements (multiple VALUES per INSERT).
      */
     public static void generateBatchInserts(QueryResult result, File file, String tableName,
-                                            int rowsPerInsert) throws IOException {
+                                            int rowsPerInsert, DatabaseType dbType) throws IOException {
 
         try (Writer writer = new OutputStreamWriter(new FileOutputStream(file), StandardCharsets.UTF_8)) {
 
@@ -95,9 +96,9 @@ public class SqlInsertGenerator {
             writer.write("-- Row count: " + result.getRowCount() + "\n");
             writer.write("\n");
 
-            writer.write("BEGIN TRANSACTION;\n\n");
+            writer.write(dbType.getBeginTransaction() + "\n\n");
 
-            String insertPrefix = buildInsertPrefix(tableName, columns);
+            String insertPrefix = buildInsertPrefix(tableName, columns, dbType);
             List<Object[]> rows = result.getRows();
             SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
@@ -109,32 +110,32 @@ public class SqlInsertGenerator {
                     if (j > i) {
                         writer.write(",\n");
                     }
-                    writer.write(buildValuesClause(rows.get(j), columns, sdf));
+                    writer.write(buildValuesClause(rows.get(j), columns, sdf, dbType));
                 }
 
                 writer.write(";\n\n");
             }
 
-            writer.write("COMMIT;\n");
+            writer.write(dbType.getCommitTransaction() + "\n");
         }
     }
 
-    private static String buildInsertPrefix(String tableName, List<ColumnInfo> columns) {
+    private static String buildInsertPrefix(String tableName, List<ColumnInfo> columns, DatabaseType dbType) {
         StringBuilder sb = new StringBuilder();
-        sb.append("INSERT INTO ").append(escapeIdentifier(tableName)).append(" (");
+        sb.append("INSERT INTO ").append(dbType.escapeIdentifier(tableName)).append(" (");
 
         for (int i = 0; i < columns.size(); i++) {
             if (i > 0) {
                 sb.append(", ");
             }
-            sb.append(escapeIdentifier(columns.get(i).getName()));
+            sb.append(dbType.escapeIdentifier(columns.get(i).getName()));
         }
 
         sb.append(") VALUES ");
         return sb.toString();
     }
 
-    private static String buildValuesClause(Object[] row, List<ColumnInfo> columns, SimpleDateFormat sdf) {
+    private static String buildValuesClause(Object[] row, List<ColumnInfo> columns, SimpleDateFormat sdf, DatabaseType dbType) {
         StringBuilder sb = new StringBuilder();
         sb.append("(");
 
@@ -142,14 +143,14 @@ public class SqlInsertGenerator {
             if (i > 0) {
                 sb.append(", ");
             }
-            sb.append(formatSqlValue(row[i], columns.get(i), sdf));
+            sb.append(formatSqlValue(row[i], columns.get(i), sdf, dbType));
         }
 
         sb.append(")");
         return sb.toString();
     }
 
-    private static String formatSqlValue(Object value, ColumnInfo columnInfo, SimpleDateFormat sdf) {
+    private static String formatSqlValue(Object value, ColumnInfo columnInfo, SimpleDateFormat sdf, DatabaseType dbType) {
         if (value == null) {
             return "NULL";
         }
@@ -180,7 +181,7 @@ public class SqlInsertGenerator {
 
         // Boolean
         if (value instanceof Boolean) {
-            return value.toString();
+            return dbType.formatBoolean((Boolean) value);
         }
 
         // String and other types - escape and quote
@@ -201,14 +202,6 @@ public class SqlInsertGenerator {
                 sqlType == Types.REAL;
     }
 
-    private static String escapeIdentifier(String identifier) {
-        // Simple escaping - wrap in double quotes
-        // In real implementation, might need database-specific handling
-        if (identifier.contains(" ") || identifier.contains("-")) {
-            return "\"" + identifier.replace("\"", "\"\"") + "\"";
-        }
-        return identifier;
-    }
 
     /**
      * Generate a default table name from the query result.

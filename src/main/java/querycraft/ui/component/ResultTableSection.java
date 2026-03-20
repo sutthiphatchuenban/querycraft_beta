@@ -14,6 +14,7 @@ import querycraft.ui.ExportConfig;
 import querycraft.ui.ExportDialog;
 import querycraft.util.CsvExporter;
 import querycraft.util.SqlInsertGenerator;
+import querycraft.service.DatabaseConnectionService;
 
 import java.io.File;
 
@@ -301,7 +302,10 @@ public class ResultTableSection extends VBox {
             File file = fileChooser.showSaveDialog(this.getScene().getWindow());
             if (file != null) {
                 lastExportDirectory = file.getParentFile();
-                SqlInsertGenerator.generate(currentResult, file, tableName.trim());
+                
+                DatabaseType dbType = DatabaseConnectionService.getInstance().getCurrentConnectionInfo().getDatabaseType();
+                SqlInsertGenerator.generate(currentResult, file, tableName.trim(), dbType);
+                
                 showInfo("SQL Generated", "SQL INSERT statements saved to:\n" + file.getAbsolutePath());
             }
         } catch (Exception e) {

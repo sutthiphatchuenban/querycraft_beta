@@ -237,12 +237,19 @@ public class MainController extends BorderPane {
             @Override
             public void onSuccess(QueryResult result) {
                 Platform.runLater(() -> {
-                    ObservableList<String> tables = FXCollections.observableArrayList();
+                    ObservableList<querycraft.model.DbTable> tables = FXCollections.observableArrayList();
+                    java.util.List<String> rawNames = new java.util.ArrayList<>();
+                    
                     for (Object[] row : result.getRows()) {
-                        if (row.length > 0) tables.add(row[0].toString());
+                        if (row.length > 0) {
+                            String name = row[0].toString();
+                            String type = row.length > 1 ? row[1].toString() : "TABLE";
+                            tables.add(new querycraft.model.DbTable(name, type));
+                            rawNames.add(name);
+                        }
                     }
                     sidebarSection.setTables(tables);
-                    querySection.getEditor().setTableNames(new java.util.ArrayList<>(tables));
+                    querySection.getEditor().setTableNames(rawNames);
                 });
             }
             @Override public void onError(Exception e) { setStatus("Fetch tables failed"); }

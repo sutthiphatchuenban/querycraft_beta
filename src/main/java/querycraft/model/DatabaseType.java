@@ -60,11 +60,12 @@ public enum DatabaseType {
     public String getShowTablesQuery() {
         switch (this) {
             case MYSQL:
-                return "SHOW TABLES";
+                // Returns Tables_in_db, Table_type
+                return "SHOW FULL TABLES";
             case POSTGRESQL:
-                return "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE' ORDER BY table_name";
+                return "SELECT table_name, table_type FROM information_schema.tables WHERE table_schema = 'public' AND table_type IN ('BASE TABLE', 'VIEW') ORDER BY table_name";
             case MSSQL:
-                return "SELECT name FROM sys.tables ORDER BY name";
+                return "SELECT name, CASE WHEN type = 'U' THEN 'BASE TABLE' WHEN type = 'V' THEN 'VIEW' ELSE 'OTHER' END as table_type FROM sys.objects WHERE type IN ('U', 'V') ORDER BY name";
             default:
                 return "";
         }
@@ -89,6 +90,67 @@ public enum DatabaseType {
                        "ORDER BY ORDINAL_POSITION";
             default:
                 return "";
+        }
+    }
+
+    /**
+     * Escape an identifier (table or column name) based on database syntax.
+     */
+    public String escapeIdentifier(String identifier) {
+        if (identifier == null) return "";
+        
+        switch (this) {
+            case MYSQL:
+                return "`" + identifier.replace("`", "``") + "`";
+            case POSTGRESQL:
+                return "\"" + identifier.replace("\"", "\"\"") + "\"";
+            case MSSQL:
+                return "[" + identifier.replace("]", "]]") + "]";
+            default:
+                return "\"" + identifier + "\"";
+        }
+    }
+
+    /**
+     * Get the transaction start command.
+     */
+    public String getBeginTransaction() {
+        switch (this) {
+            case MYSQL:
+                return "START TRANSACTION;";
+            case POSTGRESQL:
+                return "BEGIN;";
+            case MSSQL:
+                return "BEGIN TRANSACTION;";
+            default:
+                return "BEGIN TRANSACTION;";
+        }
+    }
+
+    /**
+     * Get the transaction commit command.
+     */
+    public String getCommitTransaction() {
+        switch (this) {
+            case MYSQL:
+            case POSTGRESQL:
+                return "COMMIT;";
+            case MSSQL:
+                return "COMMIT TRANSACTION;";
+            default:
+                return "COMMIT;";
+        }
+    }
+
+    /**
+     * Format a boolean value for SQL.
+     */
+    public String formatBoolean(boolean value) {
+        switch (this) {
+            case MSSQL:
+                return value ? "1" : "0"; // BIT type
+            default:
+                return value ? "TRUE" : "FALSE";
         }
     }
 

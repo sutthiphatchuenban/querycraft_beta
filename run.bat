@@ -107,27 +107,27 @@ set FULL_CP=%JAVAFX_CP%;%RICHTEXTFX_CP%;%LIBS_CP%
 
 REM Compile model classes
 echo - Compiling model classes...
-javac -encoding UTF-8 -cp "%JAVAFX_CP%;%LIBS_CP%" -d target\classes src\main\java\querycraft\model\*.java 2>nul
+javac -encoding UTF-8 -cp "%JAVAFX_CP%;%LIBS_CP%" -d target\classes src\main\java\querycraft\model\*.java
 if errorlevel 1 goto compile_error
 
 REM Compile service classes
 echo - Compiling service classes...
-javac -encoding UTF-8 -cp "%FULL_CP%;target\classes" -d target\classes src\main\java\querycraft\service\*.java 2>nul
+javac -encoding UTF-8 -cp "%FULL_CP%;target\classes" -d target\classes src\main\java\querycraft\service\*.java
 if errorlevel 1 goto compile_error
 
 REM Compile util classes
 echo - Compiling util classes...
-javac -encoding UTF-8 -cp "%FULL_CP%;target\classes" -d target\classes src\main\java\querycraft\util\*.java 2>nul
+javac -encoding UTF-8 -cp "%FULL_CP%;target\classes" -d target\classes src\main\java\querycraft\util\*.java
 if errorlevel 1 goto compile_error
 
 REM Compile ui classes
 echo - Compiling ui classes...
-javac -encoding UTF-8 -cp "%FULL_CP%;target\classes" -d target\classes src\main\java\querycraft\ui\*.java 2>nul
+javac -encoding UTF-8 -cp "%FULL_CP%;target\classes" -d target\classes src\main\java\querycraft\ui\*.java src\main\java\querycraft\ui\component\*.java
 if errorlevel 1 goto compile_error
 
 REM Compile main classes
 echo - Compiling main classes...
-javac -encoding UTF-8 -cp "%FULL_CP%;target\classes" -d target\classes src\main\java\querycraft\*.java 2>nul
+javac -encoding UTF-8 -cp "%FULL_CP%;target\classes" -d target\classes src\main\java\querycraft\*.java
 if errorlevel 1 goto compile_error
 
 echo [OK] Compilation successful

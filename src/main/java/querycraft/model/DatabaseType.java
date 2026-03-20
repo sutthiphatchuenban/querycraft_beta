@@ -4,20 +4,39 @@ package querycraft.model;
  * Enum representing supported database types.
  */
 public enum DatabaseType {
-    MYSQL("MySQL", "com.mysql.cj.jdbc.Driver", "jdbc:mysql://%s:%d/%s?useSSL=false&serverTimezone=UTC", 3306),
-    POSTGRESQL("PostgreSQL", "org.postgresql.Driver", "jdbc:postgresql://%s:%d/%s", 5432),
-    MSSQL("Microsoft SQL Server", "com.microsoft.sqlserver.jdbc.SQLServerDriver", "jdbc:sqlserver://%s:%d;databaseName=%s;encrypt=false", 1433);
+    MYSQL("MySQL", "com.mysql.cj.jdbc.Driver", "jdbc:mysql://%s:%d/%s?useSSL=false&serverTimezone=UTC", 3306,
+        "SHOW FULL TABLES", "DESCRIBE %s", "`", "START TRANSACTION;", "COMMIT;"),
+    POSTGRESQL("PostgreSQL", "org.postgresql.Driver", "jdbc:postgresql://%s:%d/%s", 5432,
+        "SELECT table_name, table_type FROM information_schema.tables WHERE table_schema = 'public' AND table_type IN ('BASE TABLE', 'VIEW') ORDER BY table_name",
+        "SELECT column_name, data_type, character_maximum_length, is_nullable, column_default FROM information_schema.columns WHERE table_name = '%s' ORDER BY ordinal_position",
+        "\"", "BEGIN;", "COMMIT;"),
+    MSSQL("Microsoft SQL Server", "com.microsoft.sqlserver.jdbc.SQLServerDriver", "jdbc:sqlserver://%s:%d;databaseName=%s;encrypt=false", 1433,
+        "SELECT name, CASE WHEN type = 'U' THEN 'BASE TABLE' WHEN type = 'V' THEN 'VIEW' ELSE 'OTHER' END as table_type FROM sys.objects WHERE type IN ('U', 'V') ORDER BY name",
+        "SELECT COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH, IS_NULLABLE, COLUMN_DEFAULT FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '%s' ORDER BY ORDINAL_POSITION",
+        "[", "BEGIN TRANSACTION;", "COMMIT TRANSACTION;");
 
     private final String displayName;
     private final String driverClass;
     private final String urlFormat;
     private final int defaultPort;
+    private final String showTablesQuery;
+    private final String describeTableQueryFormat;
+    private final String identifierQuote;
+    private final String beginTransaction;
+    private final String commitTransaction;
 
-    DatabaseType(String displayName, String driverClass, String urlFormat, int defaultPort) {
+    DatabaseType(String displayName, String driverClass, String urlFormat, int defaultPort, 
+                 String showTablesQuery, String describeTableQueryFormat, String identifierQuote,
+                 String beginTransaction, String commitTransaction) {
         this.displayName = displayName;
         this.driverClass = driverClass;
         this.urlFormat = urlFormat;
         this.defaultPort = defaultPort;
+        this.showTablesQuery = showTablesQuery;
+        this.describeTableQueryFormat = describeTableQueryFormat;
+        this.identifierQuote = identifierQuote;
+        this.beginTransaction = beginTransaction;
+        this.commitTransaction = commitTransaction;
     }
 
     public String getDisplayName() {
@@ -58,39 +77,14 @@ public enum DatabaseType {
      * Get the SQL query to list all tables in the current database.
      */
     public String getShowTablesQuery() {
-        switch (this) {
-            case MYSQL:
-                // Returns Tables_in_db, Table_type
-                return "SHOW FULL TABLES";
-            case POSTGRESQL:
-                return "SELECT table_name, table_type FROM information_schema.tables WHERE table_schema = 'public' AND table_type IN ('BASE TABLE', 'VIEW') ORDER BY table_name";
-            case MSSQL:
-                return "SELECT name, CASE WHEN type = 'U' THEN 'BASE TABLE' WHEN type = 'V' THEN 'VIEW' ELSE 'OTHER' END as table_type FROM sys.objects WHERE type IN ('U', 'V') ORDER BY name";
-            default:
-                return "";
-        }
+        return showTablesQuery;
     }
 
     /**
      * Get the SQL query to describe a table's structure.
      */
     public String getDescribeTableQuery(String tableName) {
-        switch (this) {
-            case MYSQL:
-                return "DESCRIBE " + tableName;
-            case POSTGRESQL:
-                return "SELECT column_name, data_type, character_maximum_length, is_nullable, column_default " +
-                       "FROM information_schema.columns " +
-                       "WHERE table_name = '" + tableName + "' " +
-                       "ORDER BY ordinal_position";
-            case MSSQL:
-                return "SELECT COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH, IS_NULLABLE, COLUMN_DEFAULT " +
-                       "FROM INFORMATION_SCHEMA.COLUMNS " +
-                       "WHERE TABLE_NAME = '" + tableName + "' " +
-                       "ORDER BY ORDINAL_POSITION";
-            default:
-                return "";
-        }
+        return String.format(describeTableQueryFormat, tableName);
     }
 
     /**
@@ -99,47 +93,25 @@ public enum DatabaseType {
     public String escapeIdentifier(String identifier) {
         if (identifier == null) return "";
         
-        switch (this) {
-            case MYSQL:
-                return "`" + identifier.replace("`", "``") + "`";
-            case POSTGRESQL:
-                return "\"" + identifier.replace("\"", "\"\"") + "\"";
-            case MSSQL:
-                return "[" + identifier.replace("]", "]]") + "]";
-            default:
-                return "\"" + identifier + "\"";
+        if (this == MSSQL) {
+            return "[" + identifier.replace("]", "]]") + "]";
         }
+        
+        return identifierQuote + identifier.replace(identifierQuote, identifierQuote + identifierQuote) + identifierQuote;
     }
 
     /**
      * Get the transaction start command.
      */
     public String getBeginTransaction() {
-        switch (this) {
-            case MYSQL:
-                return "START TRANSACTION;";
-            case POSTGRESQL:
-                return "BEGIN;";
-            case MSSQL:
-                return "BEGIN TRANSACTION;";
-            default:
-                return "BEGIN TRANSACTION;";
-        }
+        return beginTransaction;
     }
 
     /**
      * Get the transaction commit command.
      */
     public String getCommitTransaction() {
-        switch (this) {
-            case MYSQL:
-            case POSTGRESQL:
-                return "COMMIT;";
-            case MSSQL:
-                return "COMMIT TRANSACTION;";
-            default:
-                return "COMMIT;";
-        }
+        return commitTransaction;
     }
 
     /**

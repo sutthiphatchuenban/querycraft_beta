@@ -271,13 +271,27 @@ public class MainController extends BorderPane {
         String text = querySection.getSqlText();
         if (text == null || text.trim().isEmpty()) return;
         
-        // Simple but more efficient formatter using a cleaner regex approach
-        // Note: For complex SQL, a real parser like JSqlParser would be better
-        String formatted = text.trim()
-                .replaceAll("(?i)\\s*\\b(SELECT|FROM|WHERE|GROUP BY|ORDER BY|HAVING|LIMIT|LEFT JOIN|INNER JOIN|RIGHT JOIN|JOIN|UNION|VALUES|SET|UPDATE|DELETE)\\b\\s*", "\n$1 ")
-                .replaceAll("(?i)\\s*\\b(AND|OR)\\b\\s*", "\n  $1 ")
-                .replaceAll("\\n+", "\n")
-                .trim();
+        // Remove existing weird whitespace and comment normalization
+        String normalized = text.trim()
+                .replaceAll("\\s+", " ")
+                .replaceAll("(?i)\\s*,\\s*", ", ");
+
+        // Basic keywords to put on new lines
+        String[] keywords = {"SELECT", "FROM", "WHERE", "GROUP BY", "ORDER BY", "HAVING", "LIMIT", 
+                            "LEFT JOIN", "INNER JOIN", "RIGHT JOIN", "JOIN", "UNION", 
+                            "INSERT INTO", "VALUES", "SET", "UPDATE", "DELETE FROM"};
+        
+        String formatted = normalized;
+        for (String kw : keywords) {
+            formatted = formatted.replaceAll("(?i)\\b" + kw + "\\b", "\n" + kw);
+        }
+
+        // Sub-indentation for AND/OR
+        formatted = formatted.replaceAll("(?i)\\b(AND|OR)\\b", "\n  $1");
+
+        // Clean up leading/trailing whitespace
+        formatted = formatted.trim()
+                    .replaceAll("\\n+", "\n");
         
         querySection.setSqlText(formatted);
     }

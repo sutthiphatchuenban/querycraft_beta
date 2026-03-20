@@ -186,21 +186,28 @@ public class QueryExecutorService {
 
     /**
      * Validate if the query is safe to execute (basic check).
+     * Now more robust against comment-based bypasses.
      */
     public ValidationResult validateQuery(String sql) {
         if (sql == null || sql.trim().isEmpty()) {
             return new ValidationResult(false, "Query cannot be empty");
         }
 
-        String trimmed = sql.trim().toUpperCase();
+        // Strip comments and normalize whitespace for inspection
+        String normalized = stripComments(sql).replaceAll("\\s+", " ").toUpperCase().trim();
 
         // Check for potentially dangerous operations
-        if (trimmed.contains("DROP ") && !trimmed.startsWith("SELECT")) {
+        // Using word boundaries to avoid false positives (e.g., 'SELECT * FROM DROPTABLE')
+        if (normalized.matches(".*\\bDROP\\b.*") && !isSelectQuery(sql)) {
             return new ValidationResult(false, "DROP operations are not allowed for safety");
         }
 
-        if (trimmed.contains("TRUNCATE ")) {
+        if (normalized.matches(".*\\bTRUNCATE\\b.*")) {
             return new ValidationResult(false, "TRUNCATE operations are not allowed for safety");
+        }
+
+        if (normalized.matches(".*\\bALTER\\b.*\\b(DATABASE|SYSTEM)\\b.*")) {
+            return new ValidationResult(false, "System-level ALTER operations are not allowed");
         }
 
         return new ValidationResult(true, null);

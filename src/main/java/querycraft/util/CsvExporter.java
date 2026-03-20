@@ -28,9 +28,13 @@ public class CsvExporter {
 
             // Write BOM if needed
             if (withBom) {
-                os.write(0xEF);
-                os.write(0xBB);
-                os.write(0xBF);
+                if (charset.equals(java.nio.charset.StandardCharsets.UTF_8)) {
+                    os.write(new byte[]{(byte)0xEF, (byte)0xBB, (byte)0xBF});
+                } else if (charset.equals(java.nio.charset.StandardCharsets.UTF_16LE)) {
+                    os.write(new byte[]{(byte)0xFF, (byte)0xFE});
+                } else if (charset.equals(java.nio.charset.StandardCharsets.UTF_16BE)) {
+                    os.write(new byte[]{(byte)0xFE, (byte)0xFF});
+                }
             }
 
             // Write header

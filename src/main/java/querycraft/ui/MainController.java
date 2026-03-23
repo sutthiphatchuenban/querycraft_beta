@@ -389,18 +389,21 @@ public class MainController extends BorderPane implements querycraft.service.Con
 
         java.util.List<Object[]> streamedRows = java.util.Collections.synchronizedList(new java.util.ArrayList<>());
         querycraft.model.QueryResult streamingResult = new querycraft.model.QueryResult();
+        streamingResult.setSelectQuery(true);
 
-        streamingQueryService.streamQuery(sql, row -> streamedRows.add(row), new querycraft.service.StreamingQueryService.StreamCallback() {
-            @Override
-            public void onComplete(long totalRows, long durationMs) {
-                javafx.application.Platform.runLater(() -> {
-                    streamingResult.setRows(new java.util.ArrayList<>(streamedRows));
-                    streamingResult.setSelectQuery(true);
-                    streamingResult.setExecutionTimeMs(durationMs);
-                    resultSection.displayResult(streamingResult);
-                    setStatus("Streaming done: " + totalRows + " rows in " + durationMs + "ms");
-                });
-            }
+        streamingQueryService.streamQuery(sql, 
+            cols -> streamingResult.setColumns(cols),
+            row -> streamedRows.add(row), 
+            new querycraft.service.StreamingQueryService.StreamCallback() {
+                @Override
+                public void onComplete(long totalRows, long durationMs) {
+                    javafx.application.Platform.runLater(() -> {
+                        streamingResult.setRows(new java.util.ArrayList<>(streamedRows));
+                        streamingResult.setExecutionTimeMs(durationMs);
+                        resultSection.displayResult(streamingResult);
+                        setStatus("Streaming done: " + totalRows + " rows in " + durationMs + "ms");
+                    });
+                }
 
             @Override
             public void onError(querycraft.exception.QueryCraftException e) {

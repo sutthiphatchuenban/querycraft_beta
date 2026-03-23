@@ -49,10 +49,11 @@ public class StreamingQueryService {
     /**
      * Execute a query and stream results row by row.
      * @param sql the SQL query
+     * @param metadataConsumer consumer for column metadata
      * @param rowConsumer consumer for each row
      * @param callback callback for completion or error
      */
-    public void streamQuery(String sql, Consumer<Object[]> rowConsumer, StreamCallback callback) {
+    public void streamQuery(String sql, Consumer<List<ColumnInfo>> metadataConsumer, Consumer<Object[]> rowConsumer, StreamCallback callback) {
         try {
             connectionService.validateConnection();
         } catch (QueryCraftException e) {
@@ -86,7 +87,12 @@ public class StreamingQueryService {
                 
                 rs = stmt.executeQuery(sql);
                 ResultSetMetaData metaData = rs.getMetaData();
-                int columnCount = metaData.getColumnCount();
+                List<ColumnInfo> columns = extractColumnInfo(metaData);
+                int columnCount = columns.size();
+                
+                if (metadataConsumer != null) {
+                    metadataConsumer.accept(columns);
+                }
                 
                 long rowCount = 0;
                 long startTime = System.currentTimeMillis();
@@ -142,7 +148,7 @@ public class StreamingQueryService {
                                      int batchSize, StreamCallback callback) {
         List<Object[]> batch = new ArrayList<>(batchSize);
         
-        streamQuery(sql, row -> {
+        streamQuery(sql, null, row -> {
             batch.add(row);
             if (batch.size() >= batchSize) {
                 batchConsumer.accept(new ArrayList<>(batch));
@@ -201,9 +207,8 @@ public class StreamingQueryService {
                 
                 rs = stmt.executeQuery(sql);
                 ResultSetMetaData metaData = rs.getMetaData();
-                
-                // Extract column info
                 List<ColumnInfo> columns = extractColumnInfo(metaData);
+                
                 exporter.start(columns);
                 
                 long rowCount = 0;

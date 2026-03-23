@@ -59,13 +59,30 @@ public class HelpDialog extends Dialog<Void> {
             createParagraph("QueryCraft is a desktop application for querying databases with support for multiple database engines, " +
                 "result preview, CSV export, and SQL generation."),
             createParagraph("This help section is intended to be practical, not just descriptive. It explains how to connect, how to write queries safely, how each database behaves, what QueryCraft can and cannot do, and what patterns you should follow to avoid common errors during use."),
-            
+            createParagraph("If you are new to the system, read this Overview tab first. This page explains the whole system in business terms: what the application is for, what each major area of the screen does, how data flows from connection to result view, what tools are built into the application, and when each feature should be used."),
+             
             createSubtitle("Supported Database Types"),
             createBulletList(
                 "MySQL 8.0+ - MySQL Community Server or MariaDB",
                 "PostgreSQL 12+ - Open source relational database",
                 "Microsoft SQL Server 2016+ - Enterprise database",
                 "CSV Files (H2) - Query CSV files using SQL syntax"
+            ),
+
+            createSubtitle("System Overview"),
+            createParagraph("QueryCraft is essentially a lightweight SQL workbench for day-to-day data work. The system is designed for people who need to connect to a data source, inspect tables, write queries, review results quickly, and export those results in a usable format. It is intentionally focused on practical querying rather than deep administration tasks such as schema migration, database tuning, or production operations."),
+
+            createSubtitle("What the System Contains"),
+            createDetailedList(
+                "Connection System", "Used to connect the application to a database server or to a folder of CSV files. This is the starting point of the whole workflow. Without a connection, query execution and table browsing are disabled.",
+                "Table Explorer", "Shows discovered tables on the left side. It helps users understand what data exists before writing SQL manually. Tables can be opened quickly or their structure can be inspected.",
+                "SQL Editor", "The main workspace where users write queries. It supports syntax highlighting, simple autocomplete, formatting assistance, and parameterized query usage.",
+                "Query Execution Engine", "Receives SQL from the editor, validates it for safety, selects the proper execution strategy, and returns either rows or affected-row counts.",
+                "Prepared Parameter System", "Supports named parameters such as :customerId or :startDate so users can reuse SQL more safely and fill in values through a dialog instead of editing the SQL every time.",
+                "Result Viewer", "Displays returned rows in a table, supports paging, filtering, selection copying, and acts as the central place for reviewing query output before export.",
+                "Export System", "Takes query results and writes them out either as CSV files or as generated SQL INSERT scripts for migration, backup, or reuse in another environment.",
+                "Settings System", "Lets users control timeout behavior and connection-related runtime settings so the application can be tuned to different workloads.",
+                "Documentation System", "The help dialog itself is part of the product. It documents supported platforms, query examples, safe usage patterns, and special notes for each data source type."
             ),
 
             createSubtitle("What QueryCraft Is Best For"),
@@ -95,13 +112,49 @@ public class HelpDialog extends Dialog<Void> {
                 "Syntax highlighting SQL editor with autocomplete",
                 "JOIN multiple CSV files as if they were database tables"
             ),
-            
+
+            createSubtitle("What Each Major Screen Area Does"),
+            createDetailedList(
+                "Top Bar", "Contains the main system actions such as connect, disconnect, help, and settings. It also shows a compact connection summary so the user always knows which source is currently active.",
+                "Left Sidebar", "Contains two practical sections: a table list and recent query history. The table list is used for discovery and quick query generation. The history list is used to revisit previously executed SQL without rewriting it.",
+                "Editor Area", "This is the command center of the application. Users type SQL here, review syntax coloring, format statements, and run SELECT or DELETE-oriented actions from the action buttons.",
+                "Result Area", "Displays the result of the most recent execution. For SELECT queries this means rows and columns. For write operations this means the number of affected rows and execution feedback.",
+                "Filter and Pagination Controls", "These controls make large results easier to inspect. Instead of scrolling blindly through everything, users can search within loaded results and move through them page by page.",
+                "Export Buttons", "These actions convert the current result set into a file. They should be used only after you have verified that the result data is correct."
+            ),
+             
             createSubtitle("Safety Features"),
             createBulletList(
                 "Query validation before execution",
                 "DROP and TRUNCATE operations are blocked",
                 "Confirmation dialog for DELETE operations",
                 "Row limit for SELECT queries (10,000 rows max)"
+            ),
+
+            createSubtitle("How the System Works End to End"),
+            createDetailedList(
+                "Step 1 - Connect", "The user opens the connection dialog, chooses a source type, fills in the connection information, optionally tests the connection, and then connects.",
+                "Step 2 - Discover Data", "After connection, the system loads available tables into the sidebar. This gives the user a quick map of the connected data source.",
+                "Step 3 - Write SQL", "The user writes or edits SQL in the editor. This may be a normal SELECT statement, a filtered query, a join, an aggregate, or a parameterized statement.",
+                "Step 4 - Validate and Execute", "Before running the SQL, the system checks for risky patterns and determines the proper execution path. Queries are then executed through the relevant service layer.",
+                "Step 5 - Review Results", "Returned rows are shown in the result section. Users can inspect columns, search within the result set, copy selections, and confirm that the output matches expectations.",
+                "Step 6 - Export or Reuse", "Once the output is correct, users can export it to CSV, generate SQL INSERT statements, or reuse the SQL later from the recent history section."
+            ),
+
+            createSubtitle("Detailed Feature Explanation"),
+            createDetailedList(
+                "Connection Testing", "Lets users verify server reachability and credentials before opening a full working session. This reduces confusion when connection settings are wrong.",
+                "Recent Connections", "Stores a small list of previously used connection definitions so users can reconnect faster. This saves time in repeated operational workflows.",
+                "Recent Query History", "Remembers previously executed SQL. This is useful for repeated checks, troubleshooting, audits, or building up queries iteratively.",
+                "Syntax Highlighting", "Improves readability of SQL by visually separating keywords, strings, comments, numbers, and operators. This helps reduce mistakes in longer statements.",
+                "Autocomplete", "Suggests SQL keywords and known table names while typing. This speeds up writing and reduces simple typing errors.",
+                "SQL Formatting", "Rearranges SQL into a cleaner structure so complex statements are easier to review before execution or sharing.",
+                "Parameterized Queries", "Allows value input to be separated from SQL structure. This makes queries easier to reuse and safer for repeated manual execution.",
+                "Streaming Mode", "Intended for handling larger results with a streaming execution path so the application can work more safely with heavier data loads.",
+                "Client-side Result Filtering", "Lets users search within already returned data without sending another query to the database.",
+                "Copy Selection", "Makes it easy to transfer selected result cells into spreadsheets, chat, tickets, or documentation.",
+                "CSV Export", "Creates a file that can be used in Excel, imports, integrations, or reporting workflows. Encoding and delimiter options are provided to fit local language and tool requirements.",
+                "SQL INSERT Generation", "Turns result rows into SQL INSERT statements so the same data can be moved into another environment, used for seeding, or attached to deployment tasks."
             ),
 
             createSubtitle("Recommended Workflow"),
@@ -126,12 +179,31 @@ public class HelpDialog extends Dialog<Void> {
                 "  AND order_date <= :endDate;"
             ),
 
+            createSubtitle("When to Use Which Feature"),
+            createDetailedList(
+                "Use table browsing", "When you do not yet know what tables exist or when you want to start from schema discovery before writing custom SQL.",
+                "Use manual SQL editing", "When you need exact control over joins, filters, ordering, aggregations, or vendor-specific syntax.",
+                "Use named parameters", "When the same query structure will be reused with different values such as dates, IDs, statuses, or categories.",
+                "Use result filtering", "When the query result is already loaded and you only need a quick visual search instead of issuing another database request.",
+                "Use CSV export", "When the next step is spreadsheet analysis, manual review, business sharing, or import into another tool.",
+                "Use SQL INSERT generation", "When the next step is moving the data into another database, preparing sample data, or creating a repeatable script artifact."
+            ),
+
             createSubtitle("Timeout Settings"),
             createParagraph("Use the Settings button in the top bar to configure query timeout, result limits, and other runtime behavior. If a query takes too long, increase timeout carefully or optimize the SQL rather than setting extremely large timeouts immediately."),
-            
+             
             createSubtitle("Security Notes"),
             createParagraph("Passwords are stored in memory only and are not persisted to disk. " +
-                "Use the 'Remember Connection' feature to save connection details (without password) for quick reconnection.")
+                "Use the 'Remember Connection' feature to save connection details (without password) for quick reconnection."),
+
+            createSubtitle("Operational Notes and Expectations"),
+            createBulletList(
+                "This application is best used as a focused data access tool rather than a full database administration suite",
+                "Large data exploration should begin with limited queries before exporting everything",
+                "For CSV mode, think of the folder as a temporary in-memory database session rather than permanent storage",
+                "Always verify target rows carefully before executing DELETE statements",
+                "Always review exported results before sending them onward to business or technical consumers"
+            )
         );
         
         ScrollPane scrollPane = new ScrollPane(content);
@@ -515,6 +587,25 @@ public class HelpDialog extends Dialog<Void> {
             label.setWrapText(true);
             label.setStyle("-fx-font-size: 12px; -fx-text-fill: #475569; -fx-padding: 0 0 0 10;");
             box.getChildren().add(label);
+        }
+        return box;
+    }
+
+    private VBox createDetailedList(String... items) {
+        VBox box = new VBox(8);
+        for (int i = 0; i < items.length; i += 2) {
+            VBox itemBox = new VBox(2);
+            Label title = new Label("• " + items[i]);
+            title.setWrapText(true);
+            title.setStyle("-fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: #334155; -fx-padding: 0 0 0 10;");
+
+            String bodyText = i + 1 < items.length ? items[i + 1] : "";
+            Label body = new Label(bodyText);
+            body.setWrapText(true);
+            body.setStyle("-fx-font-size: 12px; -fx-text-fill: #475569; -fx-padding: 0 0 0 24;");
+
+            itemBox.getChildren().addAll(title, body);
+            box.getChildren().add(itemBox);
         }
         return box;
     }

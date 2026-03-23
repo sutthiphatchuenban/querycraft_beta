@@ -18,10 +18,34 @@ public class DatabaseConnectionService {
     private Connection currentConnection;
     private ConnectionInfo currentConnectionInfo;
     private final Map<DatabaseType, Boolean> driverLoadedMap;
+    private final java.util.List<ConnectionObserver> observers = new java.util.ArrayList<>();
 
     private DatabaseConnectionService() {
         this.driverLoadedMap = new HashMap<>();
     }
+
+    public void addObserver(ConnectionObserver observer) {
+        if (!observers.contains(observer)) {
+            observers.add(observer);
+        }
+    }
+
+    public void removeObserver(ConnectionObserver observer) {
+        observers.remove(observer);
+    }
+
+    private void notifyConnected(ConnectionInfo info) {
+        observers.forEach(o -> o.onConnected(info));
+    }
+
+    private void notifyDisconnected() {
+        observers.forEach(ConnectionObserver::onDisconnected);
+    }
+
+    private void notifyConnectionFailed(Exception e) {
+        observers.forEach(o -> o.onConnectionFailed(e));
+    }
+
 
     public static synchronized DatabaseConnectionService getInstance() {
         if (instance == null) {
@@ -51,22 +75,28 @@ public class DatabaseConnectionService {
      * Connect to a database using the provided connection info.
      */
     public Connection connect(ConnectionInfo connectionInfo) throws SQLException {
-        // Close existing connection if any
-        disconnect();
+        try {
+            // Close existing connection if any
+            disconnect();
 
-        // Load driver
-        loadDriver(connectionInfo.getDatabaseType());
+            // Load driver
+            loadDriver(connectionInfo.getDatabaseType());
 
-        // Create connection
-        String jdbcUrl = connectionInfo.getJdbcUrl();
-        currentConnection = DriverManager.getConnection(
-                jdbcUrl,
-                connectionInfo.getUsername(),
-                connectionInfo.getPassword()
-        );
-        currentConnectionInfo = connectionInfo;
+            // Create connection
+            String jdbcUrl = connectionInfo.getJdbcUrl();
+            currentConnection = java.sql.DriverManager.getConnection(
+                    jdbcUrl,
+                    connectionInfo.getUsername(),
+                    connectionInfo.getPassword()
+            );
+            currentConnectionInfo = connectionInfo;
 
-        return currentConnection;
+            notifyConnected(connectionInfo);
+            return currentConnection;
+        } catch (SQLException e) {
+            notifyConnectionFailed(e);
+            throw e;
+        }
     }
 
     /**
@@ -98,6 +128,7 @@ public class DatabaseConnectionService {
             } finally {
                 currentConnection = null;
                 currentConnectionInfo = null;
+                notifyDisconnected();
             }
         }
     }

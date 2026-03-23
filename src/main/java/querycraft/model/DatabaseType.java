@@ -1,42 +1,27 @@
 package querycraft.model;
 
+import querycraft.dialect.*;
+
 /**
- * Enum representing supported database types.
+ * Enum representing supported database types, delegating behavior to dialects.
  */
 public enum DatabaseType {
-    MYSQL("MySQL", "com.mysql.cj.jdbc.Driver", "jdbc:mysql://%s:%d/%s?useSSL=false&serverTimezone=UTC", 3306,
-        "SHOW FULL TABLES", "DESCRIBE %s", "`", "START TRANSACTION;", "COMMIT;"),
-    POSTGRESQL("PostgreSQL", "org.postgresql.Driver", "jdbc:postgresql://%s:%d/%s", 5432,
-        "SELECT table_name, table_type FROM information_schema.tables WHERE table_schema = 'public' AND table_type IN ('BASE TABLE', 'VIEW') ORDER BY table_name",
-        "SELECT column_name, data_type, character_maximum_length, is_nullable, column_default FROM information_schema.columns WHERE table_name = '%s' ORDER BY ordinal_position",
-        "\"", "BEGIN;", "COMMIT;"),
-    MSSQL("Microsoft SQL Server", "com.microsoft.sqlserver.jdbc.SQLServerDriver", "jdbc:sqlserver://%s:%d;databaseName=%s;encrypt=false", 1433,
-        "SELECT name, CASE WHEN type = 'U' THEN 'BASE TABLE' WHEN type = 'V' THEN 'VIEW' ELSE 'OTHER' END as table_type FROM sys.objects WHERE type IN ('U', 'V') ORDER BY name",
-        "SELECT COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH, IS_NULLABLE, COLUMN_DEFAULT FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '%s' ORDER BY ORDINAL_POSITION",
-        "[", "BEGIN TRANSACTION;", "COMMIT TRANSACTION;");
+    MYSQL("MySQL", "com.mysql.cj.jdbc.Driver", "jdbc:mysql://%s:%d/%s?useSSL=false&serverTimezone=UTC", 3306, new MySqlDialect()),
+    POSTGRESQL("PostgreSQL", "org.postgresql.Driver", "jdbc:postgresql://%s:%d/%s", 5432, new PostgreSqlDialect()),
+    MSSQL("Microsoft SQL Server", "com.microsoft.sqlserver.jdbc.SQLServerDriver", "jdbc:sqlserver://%s:%d;databaseName=%s;encrypt=false", 1433, new SqlServerDialect());
 
     private final String displayName;
     private final String driverClass;
     private final String urlFormat;
     private final int defaultPort;
-    private final String showTablesQuery;
-    private final String describeTableQueryFormat;
-    private final String identifierQuote;
-    private final String beginTransaction;
-    private final String commitTransaction;
+    private final DatabaseDialect dialect;
 
-    DatabaseType(String displayName, String driverClass, String urlFormat, int defaultPort, 
-                 String showTablesQuery, String describeTableQueryFormat, String identifierQuote,
-                 String beginTransaction, String commitTransaction) {
+    DatabaseType(String displayName, String driverClass, String urlFormat, int defaultPort, DatabaseDialect dialect) {
         this.displayName = displayName;
         this.driverClass = driverClass;
         this.urlFormat = urlFormat;
         this.defaultPort = defaultPort;
-        this.showTablesQuery = showTablesQuery;
-        this.describeTableQueryFormat = describeTableQueryFormat;
-        this.identifierQuote = identifierQuote;
-        this.beginTransaction = beginTransaction;
-        this.commitTransaction = commitTransaction;
+        this.dialect = dialect;
     }
 
     public String getDisplayName() {
@@ -56,74 +41,35 @@ public enum DatabaseType {
     }
 
     public String buildUrl(String host, int port, String database, boolean useSSL) {
-        String url = String.format(urlFormat, host, port, database);
-        if (useSSL) {
-            if (this == POSTGRESQL) {
-                url += (url.contains("?") ? "&" : "?") + "sslmode=require";
-            } else if (this == MYSQL) {
-                url = url.replace("useSSL=false", "useSSL=true");
-            } else if (this == MSSQL) {
-                url += ";encrypt=true;trustServerCertificate=true";
-            }
-        }
-        return url;
+        return dialect.buildUrl(host, port, database, useSSL, urlFormat);
     }
 
     public String buildUrl(String host, int port, String database) {
         return buildUrl(host, port, database, false);
     }
 
-    /**
-     * Get the SQL query to list all tables in the current database.
-     */
     public String getShowTablesQuery() {
-        return showTablesQuery;
+        return dialect.getShowTablesQuery();
     }
 
-    /**
-     * Get the SQL query to describe a table's structure.
-     */
     public String getDescribeTableQuery(String tableName) {
-        return String.format(describeTableQueryFormat, tableName);
+        return dialect.getDescribeTableQuery(tableName);
     }
 
-    /**
-     * Escape an identifier (table or column name) based on database syntax.
-     */
     public String escapeIdentifier(String identifier) {
-        if (identifier == null) return "";
-        
-        if (this == MSSQL) {
-            return "[" + identifier.replace("]", "]]") + "]";
-        }
-        
-        return identifierQuote + identifier.replace(identifierQuote, identifierQuote + identifierQuote) + identifierQuote;
+        return dialect.escapeIdentifier(identifier);
     }
 
-    /**
-     * Get the transaction start command.
-     */
     public String getBeginTransaction() {
-        return beginTransaction;
+        return dialect.getBeginTransaction();
     }
 
-    /**
-     * Get the transaction commit command.
-     */
     public String getCommitTransaction() {
-        return commitTransaction;
+        return dialect.getCommitTransaction();
     }
 
-    /**
-     * Format a boolean value for SQL.
-     */
     public String formatBoolean(boolean value) {
-        switch (this) {
-            case MSSQL:
-                return value ? "1" : "0"; // BIT type
-            default:
-                return value ? "TRUE" : "FALSE";
-        }
+        return dialect.formatBoolean(value);
     }
 
     @Override
@@ -131,3 +77,4 @@ public enum DatabaseType {
         return displayName;
     }
 }
+

@@ -13,9 +13,9 @@ import querycraft.service.QueryExecutorService;
 import querycraft.ui.component.*;
 
 /**
- * Main controller for the QueryCraft application, refactored for scalability.
+ * Main controller for the QueryCraft application, refactored for scalability and OOP patterns.
  */
-public class MainController extends BorderPane {
+public class MainController extends BorderPane implements querycraft.service.ConnectionObserver {
 
     private final DatabaseConnectionService connectionService;
     private final QueryExecutorService queryExecutor;
@@ -34,6 +34,9 @@ public class MainController extends BorderPane {
     public MainController() {
         this.connectionService = DatabaseConnectionService.getInstance();
         this.queryExecutor = new QueryExecutorService();
+        
+        // Register as observer
+        this.connectionService.addObserver(this);
 
         // Initialize components
         this.sidebarSection = new SidebarSection();
@@ -44,6 +47,33 @@ public class MainController extends BorderPane {
         setupListeners();
         updateConnectionStatus();
     }
+
+    @Override
+    public void onConnected(ConnectionInfo info) {
+        Platform.runLater(() -> {
+            updateConnectionStatus();
+            fetchTables();
+            setStatus("Connected to " + info.getDatabase());
+        });
+    }
+
+    @Override
+    public void onDisconnected() {
+        Platform.runLater(() -> {
+            updateConnectionStatus();
+            resultSection.displayResult(null);
+            setStatus("Disconnected");
+        });
+    }
+
+    @Override
+    public void onConnectionFailed(Exception e) {
+        Platform.runLater(() -> {
+            showError("Connection Failed", e.getMessage());
+            setStatus("Connection Failed");
+        });
+    }
+
 
     private void initializeUI() {
         setTop(createTopBar());
@@ -148,19 +178,15 @@ public class MainController extends BorderPane {
         try {
             setStatus("Connecting...");
             connectionService.connect(info);
-            updateConnectionStatus();
-            fetchTables();
-            setStatus("Connected to " + info.getDatabase());
+            // UI updates now handled by onConnected observer method
         } catch (Exception e) {
-            showError("Connection Failed", e.getMessage());
+            // Error handled by onConnectionFailed observer method
         }
     }
 
     private void disconnect() {
         connectionService.disconnect();
-        updateConnectionStatus();
-        resultSection.displayResult(null);
-        setStatus("Disconnected");
+        // UI updates now handled by onDisconnected observer method
     }
 
     private void updateConnectionStatus() {

@@ -1,18 +1,14 @@
 package querycraft.service;
 
-import querycraft.model.ColumnInfo;
 import querycraft.model.QueryResult;
 
 import java.sql.*;
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * Service for executing SQL queries.
  */
 public class QueryExecutorService {
 
-    private static final int MAX_ROWS = 10000; // Limit rows for safety
     private static final java.util.concurrent.ExecutorService EXECUTOR = java.util.concurrent.Executors.newFixedThreadPool(4, r -> {
         Thread t = new Thread(r);
         t.setDaemon(true);
@@ -21,91 +17,36 @@ public class QueryExecutorService {
     });
 
     private final DatabaseConnectionService connectionService;
+    private final java.util.List<querycraft.service.handler.QueryHandler> handlers = new java.util.ArrayList<>();
 
     public QueryExecutorService() {
         this.connectionService = DatabaseConnectionService.getInstance();
+        
+        // Initialize handlers (Strategy/Command pattern)
+        handlers.add(new querycraft.service.handler.SelectHandler());
+        handlers.add(new querycraft.service.handler.UpdateHandler());
+        handlers.add(new querycraft.service.handler.GenericHandler()); // Fallback
     }
 
     /**
-     * Execute a SELECT query and return results.
-     */
-    public QueryResult executeSelect(String sql) throws SQLException {
-        connectionService.validateConnection();
-
-        QueryResult result = new QueryResult();
-        result.setSelectQuery(true);
-
-        long startTime = System.currentTimeMillis();
-
-        try (Statement stmt = connectionService.getCurrentConnection().createStatement()) {
-            stmt.setMaxRows(MAX_ROWS);
-
-            try (ResultSet rs = stmt.executeQuery(sql)) {
-                ResultSetMetaData metaData = rs.getMetaData();
-                int columnCount = metaData.getColumnCount();
-
-                // Extract column information
-                List<ColumnInfo> columns = extractColumnInfo(metaData, columnCount);
-                result.setColumns(columns);
-
-                // Extract rows
-                List<Object[]> rows = new ArrayList<>();
-                while (rs.next()) {
-                    Object[] row = new Object[columnCount];
-                    for (int i = 0; i < columnCount; i++) {
-                        row[i] = rs.getObject(i + 1);
-                    }
-                    rows.add(row);
-                }
-                result.setRows(rows);
-            }
-        } catch (SQLException e) {
-            result.setErrorMessage("Query execution failed: " + e.getMessage());
-            throw e;
-        }
-
-        result.setExecutionTimeMs(System.currentTimeMillis() - startTime);
-        return result;
-    }
-
-    /**
-     * Execute a DELETE query and return affected row count.
-     */
-    public QueryResult executeDelete(String sql) throws SQLException {
-        connectionService.validateConnection();
-
-        QueryResult result = new QueryResult();
-        result.setSelectQuery(false);
-
-        long startTime = System.currentTimeMillis();
-
-        try (Statement stmt = connectionService.getCurrentConnection().createStatement()) {
-            int affectedRows = stmt.executeUpdate(sql);
-            result.setAffectedRows(affectedRows);
-        } catch (SQLException e) {
-            result.setErrorMessage("Delete execution failed: " + e.getMessage());
-            throw e;
-        }
-
-        result.setExecutionTimeMs(System.currentTimeMillis() - startTime);
-        return result;
-    }
-
-    /**
-     * Execute any query and auto-detect if it's SELECT or other.
+     * Execute any query using the appropriate handler.
      */
     public QueryResult execute(String sql) throws SQLException {
-        String cleanSql = stripComments(sql).trim().toUpperCase();
+        connectionService.validateConnection();
+        Connection conn = connectionService.getCurrentConnection();
 
-        if (cleanSql.startsWith("SELECT") || cleanSql.startsWith("WITH") || cleanSql.startsWith("SHOW") || cleanSql.startsWith("DESCRIBE") || cleanSql.startsWith("EXPLAIN")) {
-            return executeSelect(sql);
-        } else if (cleanSql.startsWith("DELETE")) {
-            return executeDelete(sql);
-        } else if (cleanSql.startsWith("INSERT") || cleanSql.startsWith("UPDATE")) {
-            return executeUpdate(sql);
-        } else {
-            return executeGeneric(sql);
+        for (querycraft.service.handler.QueryHandler handler : handlers) {
+            if (handler.canHandle(sql)) {
+                try {
+                    return handler.handle(sql, conn);
+                } catch (SQLException e) {
+                    // Specific handler failed
+                    throw e;
+                }
+            }
         }
+        
+        throw new SQLException("No suitable handler found for this query");
     }
 
     private String stripComments(String sql) {
@@ -114,75 +55,6 @@ public class QueryExecutorService {
         return sql.replaceAll("--.*", "").replaceAll("/\\*(.|\\R)*?\\*/", "");
     }
 
-    /**
-     * Execute INSERT or UPDATE query.
-     */
-    public QueryResult executeUpdate(String sql) throws SQLException {
-        connectionService.validateConnection();
-
-        QueryResult result = new QueryResult();
-        result.setSelectQuery(false);
-
-        long startTime = System.currentTimeMillis();
-
-        try (Statement stmt = connectionService.getCurrentConnection().createStatement()) {
-            int affectedRows = stmt.executeUpdate(sql);
-            result.setAffectedRows(affectedRows);
-        } catch (SQLException e) {
-            result.setErrorMessage("Update execution failed: " + e.getMessage());
-            throw e;
-        }
-
-        result.setExecutionTimeMs(System.currentTimeMillis() - startTime);
-        return result;
-    }
-
-    /**
-     * Execute a generic SQL statement.
-     */
-    public QueryResult executeGeneric(String sql) throws SQLException {
-        connectionService.validateConnection();
-
-        QueryResult result = new QueryResult();
-        result.setSelectQuery(false);
-
-        long startTime = System.currentTimeMillis();
-
-        try (Statement stmt = connectionService.getCurrentConnection().createStatement()) {
-            boolean hasResultSet = stmt.execute(sql);
-
-            if (hasResultSet) {
-                // It was actually a query
-                try (ResultSet rs = stmt.getResultSet()) {
-                    ResultSetMetaData metaData = rs.getMetaData();
-                    int columnCount = metaData.getColumnCount();
-
-                    List<ColumnInfo> columns = extractColumnInfo(metaData, columnCount);
-                    result.setColumns(columns);
-
-                    List<Object[]> rows = new ArrayList<>();
-                    while (rs.next()) {
-                        Object[] row = new Object[columnCount];
-                        for (int i = 0; i < columnCount; i++) {
-                            row[i] = rs.getObject(i + 1);
-                        }
-                        rows.add(row);
-                    }
-                    result.setRows(rows);
-                    result.setSelectQuery(true);
-                }
-            } else {
-                // It was an update
-                result.setAffectedRows(stmt.getUpdateCount());
-            }
-        } catch (SQLException e) {
-            result.setErrorMessage("Execution failed: " + e.getMessage());
-            throw e;
-        }
-
-        result.setExecutionTimeMs(System.currentTimeMillis() - startTime);
-        return result;
-    }
 
     /**
      * Validate if the query is safe to execute (basic check).
@@ -227,20 +99,6 @@ public class QueryExecutorService {
         if (sql == null) return false;
         String clean = stripComments(sql).trim().toUpperCase();
         return clean.startsWith("SELECT") || clean.startsWith("WITH") || clean.startsWith("SHOW") || clean.startsWith("DESCRIBE") || clean.startsWith("EXPLAIN");
-    }
-
-    private List<ColumnInfo> extractColumnInfo(ResultSetMetaData metaData, int columnCount) throws SQLException {
-        List<ColumnInfo> columns = new ArrayList<>();
-        for (int i = 1; i <= columnCount; i++) {
-            ColumnInfo col = new ColumnInfo();
-            col.setName(metaData.getColumnLabel(i));
-            col.setTypeName(metaData.getColumnTypeName(i));
-            col.setSqlType(metaData.getColumnType(i));
-            col.setDisplaySize(metaData.getColumnDisplaySize(i));
-            col.setNullable(metaData.isNullable(i) == ResultSetMetaData.columnNullable);
-            columns.add(col);
-        }
-        return columns;
     }
 
     /**

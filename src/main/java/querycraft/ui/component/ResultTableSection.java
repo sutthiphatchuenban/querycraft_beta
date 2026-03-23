@@ -12,8 +12,8 @@ import javafx.stage.FileChooser;
 import querycraft.model.*;
 import querycraft.ui.ExportConfig;
 import querycraft.ui.ExportDialog;
-import querycraft.util.CsvExporter;
-import querycraft.util.SqlInsertGenerator;
+import querycraft.util.DataExporter;
+import querycraft.util.ExporterFactory;
 import querycraft.service.DatabaseConnectionService;
 
 import java.io.File;
@@ -264,16 +264,14 @@ public class ResultTableSection extends VBox {
         if (currentResult == null || currentResult.getRows().isEmpty()) return;
         
         try {
-            String defaultFilename = CsvExporter.generateFilename("export", "csv");
+            String defaultFilename = ExporterFactory.generateDefaultFilename("export", "csv");
             ExportDialog dialog = new ExportDialog(defaultFilename, lastExportDirectory);
             dialog.initOwner(this.getScene().getWindow());
 
             ExportConfig config = dialog.showAndWait().orElse(null);
             if (config != null) {
-                lastExportDirectory = config.getFile().getParentFile();
-                CsvExporter.export(currentResult, config.getFile(), config.getOptions());
-                
-                showInfo("Export Complete", "Data exported successfully to:\n" + config.getFile().getAbsolutePath());
+                DataExporter exporter = ExporterFactory.createCsvExporter(config.getOptions());
+                performExport(exporter, config.getFile());
             }
         } catch (Exception e) {
             showError("Export Failed", e.getMessage());
@@ -301,17 +299,26 @@ public class ResultTableSection extends VBox {
             
             File file = fileChooser.showSaveDialog(this.getScene().getWindow());
             if (file != null) {
-                lastExportDirectory = file.getParentFile();
-                
                 DatabaseType dbType = DatabaseConnectionService.getInstance().getCurrentConnectionInfo().getDatabaseType();
-                SqlInsertGenerator.generate(currentResult, file, tableName.trim(), dbType);
-                
-                showInfo("SQL Generated", "SQL INSERT statements saved to:\n" + file.getAbsolutePath());
+                DataExporter exporter = ExporterFactory.createSqlExporter(tableName.trim(), dbType);
+                performExport(exporter, file);
             }
         } catch (Exception e) {
             showError("Generation Failed", e.getMessage());
         }
     }
+
+    private void performExport(DataExporter exporter, File file) {
+        try {
+            lastExportDirectory = file.getParentFile();
+            exporter.export(currentResult, file);
+            showInfo(exporter.getDisplayName() + " Complete", 
+                    "Data exported successfully to:\n" + file.getAbsolutePath());
+        } catch (Exception e) {
+            showError("Export Failed", e.getMessage());
+        }
+    }
+
 
     @SuppressWarnings("rawtypes")
     private void copySelectionToClipboard() {

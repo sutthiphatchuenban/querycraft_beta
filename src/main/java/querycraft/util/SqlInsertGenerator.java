@@ -12,14 +12,45 @@ import java.util.Date;
 import java.util.List;
 
 /**
- * Utility class for generating SQL INSERT statements from query results.
+ * Strategy implementation for generating SQL INSERT statements from query results.
  */
-public class SqlInsertGenerator {
+public class SqlInsertGenerator implements DataExporter {
 
     private static final int DEFAULT_BATCH_SIZE = 1000;
+    
+    private final String tableName;
+    private final DatabaseType dbType;
+    private final int batchSize;
+    private final boolean useTransaction;
+
+    public SqlInsertGenerator(String tableName, DatabaseType dbType) {
+        this(tableName, dbType, DEFAULT_BATCH_SIZE, true);
+    }
+
+    public SqlInsertGenerator(String tableName, DatabaseType dbType, int batchSize, boolean useTransaction) {
+        this.tableName = tableName != null ? tableName : "exported_data";
+        this.dbType = dbType;
+        this.batchSize = batchSize;
+        this.useTransaction = useTransaction;
+    }
+
+    @Override
+    public void export(QueryResult result, File file) throws IOException {
+        generate(result, file, this.tableName, this.batchSize, this.useTransaction, this.dbType);
+    }
+
+    @Override
+    public String getFileExtension() {
+        return "sql";
+    }
+
+    @Override
+    public String getDisplayName() {
+        return "SQL INSERT Statements";
+    }
 
     /**
-     * Generate SQL INSERT statements from query result.
+     * Legacy static method for backward compatibility.
      */
     public static void generate(QueryResult result, File file, String tableName, DatabaseType dbType) throws IOException {
         generate(result, file, tableName, DEFAULT_BATCH_SIZE, true, dbType);

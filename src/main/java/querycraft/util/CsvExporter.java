@@ -5,26 +5,50 @@ import querycraft.model.ExportOptions;
 import querycraft.model.QueryResult;
 
 import java.io.*;
-import java.nio.charset.Charset;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
 
 /**
- * Utility class for exporting query results to CSV format.
+ * Strategy implementation for exporting query results to CSV format.
  */
-public class CsvExporter {
+public class CsvExporter implements DataExporter {
+
+    private final ExportOptions options;
+
+    public CsvExporter(ExportOptions options) {
+        this.options = options != null ? options : new ExportOptions();
+    }
+
+    public CsvExporter() {
+        this(new ExportOptions());
+    }
+
+    @Override
+    public void export(QueryResult result, File file) throws IOException {
+        export(result, file, this.options);
+    }
+
+    @Override
+    public String getFileExtension() {
+        return "csv";
+    }
+
+    @Override
+    public String getDisplayName() {
+        return "Comma Separated Values (CSV)";
+    }
 
     /**
-     * Export query result to CSV file with specified options.
+     * Legacy static method for backward compatibility if needed.
      */
     public static void export(QueryResult result, File file, ExportOptions options) throws IOException {
-        Charset charset = options.getEffectiveCharset();
+        java.nio.charset.Charset charset = options.getEffectiveCharset();
         boolean withBom = options.getEncoding().isWithBom();
         String delimiter = options.getEffectiveDelimiter();
 
-        try (OutputStream os = new FileOutputStream(file);
-             Writer writer = new OutputStreamWriter(os, charset)) {
+        try (java.io.OutputStream os = new java.io.FileOutputStream(file);
+             java.io.Writer writer = new java.io.OutputStreamWriter(os, charset)) {
 
             // Write BOM if needed
             if (withBom) {
@@ -43,18 +67,11 @@ public class CsvExporter {
             }
 
             // Write data rows
-            SimpleDateFormat dateFormat = new SimpleDateFormat(options.getDateFormat());
+            java.text.SimpleDateFormat dateFormat = new java.text.SimpleDateFormat(options.getDateFormat());
             for (Object[] row : result.getRows()) {
                 writeRow(writer, row, result.getColumns(), delimiter, dateFormat, options);
             }
         }
-    }
-
-    /**
-     * Export query result to CSV with default options.
-     */
-    public static void export(QueryResult result, File file) throws IOException {
-        export(result, file, new ExportOptions());
     }
 
     private static void writeHeader(Writer writer, List<ColumnInfo> columns, String delimiter,

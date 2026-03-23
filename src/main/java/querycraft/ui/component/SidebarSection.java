@@ -8,9 +8,10 @@ import javafx.scene.layout.*;
 import querycraft.model.DbTable;
 
 /**
- * Component for the sidebar that displays tables and query history.
+ * Component for the sidebar that displays tables and query history, using OOP observer pattern.
  */
-public class SidebarSection extends VBox {
+public class SidebarSection extends VBox implements querycraft.service.ConnectionObserver {
+
 
     private final ListView<DbTable> tableListView;
     private final ListView<String> historyListView;
@@ -31,6 +32,9 @@ public class SidebarSection extends VBox {
         this.setPadding(new Insets(10));
         this.setMinWidth(200);
         this.setPrefWidth(220);
+
+        // Register as observer
+        querycraft.service.DatabaseConnectionService.getInstance().addObserver(this);
 
         // Tables Section
         Label tablesLabel = new Label("Tables");
@@ -110,5 +114,20 @@ public class SidebarSection extends VBox {
 
     public ObservableList<String> getHistory() {
         return historyData;
+    }
+
+    @Override
+    public void onConnected(querycraft.model.ConnectionInfo info) {
+        // MainController handles the fetchTables() call
+    }
+
+    @Override
+    public void onDisconnected() {
+        javafx.application.Platform.runLater(() -> tableData.clear());
+    }
+
+    @Override
+    public void onConnectionFailed(Exception e) {
+        javafx.application.Platform.runLater(() -> tableData.clear());
     }
 }

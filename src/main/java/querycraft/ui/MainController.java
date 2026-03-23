@@ -166,7 +166,7 @@ public class MainController extends BorderPane implements querycraft.service.Con
         connectButton.setOnAction(e -> showConnectionDialog());
 
         disconnectButton = new Button("Disconnect");
-        disconnectButton.getStyleClass().add("button-neutral");
+        disconnectButton.getStyleClass().add("button-danger");
         disconnectButton.setOnAction(e -> disconnect());
 
         Button helpButton = new Button("Help");
@@ -385,35 +385,53 @@ public class MainController extends BorderPane implements querycraft.service.Con
     private void executeStreamingQuery(String sql) {
         sidebarSection.addToHistory(sql);
         setStatus("Executing in streaming mode...");
-        resultSection.setLoading(true);
 
-        java.util.List<Object[]> streamedRows = java.util.Collections.synchronizedList(new java.util.ArrayList<>());
-        querycraft.model.QueryResult streamingResult = new querycraft.model.QueryResult();
-        streamingResult.setSelectQuery(true);
+        java.util.List<Object[]> batch = new java.util.ArrayList<>();
+        final int BATCH_SIZE = 500;
 
         streamingQueryService.streamQuery(sql, 
-            cols -> streamingResult.setColumns(cols),
-            row -> streamedRows.add(row), 
+            cols -> {
+                javafx.application.Platform.runLater(() -> {
+                    resultSection.initializeStreaming(cols);
+                });
+            },
+            row -> {
+                synchronized (batch) {
+                    batch.add(row);
+                    if (batch.size() >= BATCH_SIZE) {
+                        java.util.List<Object[]> batchToProcess = new java.util.ArrayList<>(batch);
+                        batch.clear();
+                        javafx.application.Platform.runLater(() -> {
+                            resultSection.addStreamingBatch(batchToProcess);
+                        });
+                    }
+                }
+            }, 
             new querycraft.service.StreamingQueryService.StreamCallback() {
                 @Override
                 public void onComplete(long totalRows, long durationMs) {
                     javafx.application.Platform.runLater(() -> {
-                        streamingResult.setRows(new java.util.ArrayList<>(streamedRows));
-                        streamingResult.setExecutionTimeMs(durationMs);
-                        resultSection.displayResult(streamingResult);
+                        synchronized (batch) {
+                            if (!batch.isEmpty()) {
+                                resultSection.addStreamingBatch(new java.util.ArrayList<>(batch));
+                                batch.clear();
+                            }
+                        }
+                        resultSection.finishStreaming(durationMs, totalRows);
                         setStatus("Streaming done: " + totalRows + " rows in " + durationMs + "ms");
                     });
                 }
 
-            @Override
-            public void onError(querycraft.exception.QueryCraftException e) {
-                javafx.application.Platform.runLater(() -> {
-                    showError("Streaming Query Error", e.getMessage());
-                    setStatus("Streaming error");
-                    resultSection.setLoading(false);
-                });
+                @Override
+                public void onError(querycraft.exception.QueryCraftException e) {
+                    javafx.application.Platform.runLater(() -> {
+                        showError("Streaming Query Error", e.getMessage());
+                        setStatus("Streaming error");
+                        resultSection.failStreaming(e.getMessage());
+                    });
+                }
             }
-        });
+        );
     }
 
     private void fetchTables() {

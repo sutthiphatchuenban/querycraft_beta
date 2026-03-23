@@ -25,8 +25,10 @@ public class QueryEditorSection extends VBox {
     public QueryEditorSection() {
         super(5);
         this.setPadding(new Insets(10));
+        this.getStyleClass().add("section-panel");
 
         Label label = new Label("SQL Query:");
+        label.getStyleClass().add("section-label");
         
         queryEditor = new SqlEditor();
         queryEditor.setPromptText("Enter your SQL query here...\nExample: SELECT * FROM users LIMIT 100");

@@ -39,7 +39,7 @@ public class SettingsDialog extends Dialog<Boolean> {
         tabPane.getTabs().addAll(queryTab, connectionTab);
 
         getDialogPane().setContent(tabPane);
-        getDialogPane().setPrefSize(450, 300);
+        getDialogPane().setPrefSize(450, 380);
 
         // Buttons
         ButtonType saveButtonType = new ButtonType("Save", ButtonBar.ButtonData.OK_DONE);

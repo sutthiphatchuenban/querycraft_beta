@@ -48,6 +48,7 @@ public class ResultTableSection extends VBox {
         super(5);
         this.setPadding(new Insets(10));
         VBox.setVgrow(this, Priority.ALWAYS);
+        this.getStyleClass().add("section-panel");
 
         // Filter bar
         HBox filterBar = new HBox(10);
@@ -56,6 +57,7 @@ public class ResultTableSection extends VBox {
         filterBar.setPadding(new Insets(0, 0, 5, 0));
 
         Label filterLabel = new Label("Filter Results:");
+        filterLabel.getStyleClass().add("section-label");
         filterField = new TextField();
         filterField.setPromptText("Type to filter data...");
         filterField.setPrefWidth(300);
@@ -199,6 +201,50 @@ public class ResultTableSection extends VBox {
             updatePaginationButtons();
             setExportButtonsEnabled(false);
         }
+    }
+
+    public void initializeStreaming(java.util.List<querycraft.model.ColumnInfo> columns) {
+        this.currentResult = new QueryResult();
+        this.currentResult.setSelectQuery(true);
+        this.currentResult.setColumns(columns);
+        this.currentResult.setRows(new java.util.ArrayList<>());
+        this.currentPage = 0;
+        this.resultTable.getColumns().clear();
+        this.masterData.clear();
+        this.filterField.clear();
+
+        for (int i = 0; i < columns.size(); i++) {
+            final int colIndex = i;
+            TableColumn<Object[], Object> col = new TableColumn<>(columns.get(i).getName());
+            col.setCellValueFactory(data -> new javafx.beans.property.SimpleObjectProperty<>(data.getValue()[colIndex]));
+            resultTable.getColumns().add(col);
+        }
+
+        resultInfoLabel.setText("Streaming results...");
+        resultInfoLabel.setStyle("-fx-text-fill: #333;");
+        setExportButtonsEnabled(false);
+    }
+
+    public void addStreamingBatch(java.util.List<Object[]> batch) {
+        this.currentResult.getRows().addAll(batch);
+        this.masterData.addAll(batch);
+        updateTableData();
+        resultInfoLabel.setText("Streaming in progress... " + this.masterData.size() + " rows loaded.");
+    }
+
+    public void finishStreaming(long durationMs, long totalRows) {
+        setLoading(false);
+        if (this.currentResult != null) {
+            this.currentResult.setExecutionTimeMs(durationMs);
+        }
+        updateTableData();
+        setExportButtonsEnabled(!this.masterData.isEmpty());
+    }
+
+    public void failStreaming(String errorMsg) {
+        setLoading(false);
+        resultInfoLabel.setText("Streaming Error: " + errorMsg);
+        resultInfoLabel.setStyle("-fx-text-fill: #f44336;");
     }
 
     private void applyFilter() {

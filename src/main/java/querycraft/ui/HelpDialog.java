@@ -58,6 +58,7 @@ public class HelpDialog extends Dialog<Void> {
             createTitle("QueryCraft - Database Query Tool"),
             createParagraph("QueryCraft is a desktop application for querying databases with support for multiple database engines, " +
                 "result preview, CSV export, and SQL generation."),
+            createParagraph("This help section is intended to be practical, not just descriptive. It explains how to connect, how to write queries safely, how each database behaves, what QueryCraft can and cannot do, and what patterns you should follow to avoid common errors during use."),
             
             createSubtitle("Supported Database Types"),
             createBulletList(
@@ -65,6 +66,24 @@ public class HelpDialog extends Dialog<Void> {
                 "PostgreSQL 12+ - Open source relational database",
                 "Microsoft SQL Server 2016+ - Enterprise database",
                 "CSV Files (H2) - Query CSV files using SQL syntax"
+            ),
+
+            createSubtitle("What QueryCraft Is Best For"),
+            createBulletList(
+                "Exploring tables and previewing data quickly",
+                "Running SELECT statements for inspection and reporting",
+                "Testing filters, joins, aggregations, and export workflows",
+                "Working with CSV files using SQL without importing them into a full database first",
+                "Generating SQL INSERT scripts from result sets for migration or seeding"
+            ),
+
+            createSubtitle("What QueryCraft Is Not Designed For"),
+            createBulletList(
+                "Heavy database administration tasks",
+                "Schema design or migration management",
+                "Large-scale ETL workloads",
+                "Editing millions of rows interactively",
+                "Replacing a full database IDE for advanced debugging, profiling, or execution plan analysis"
             ),
             
             createSubtitle("Key Features"),
@@ -84,6 +103,31 @@ public class HelpDialog extends Dialog<Void> {
                 "Confirmation dialog for DELETE operations",
                 "Row limit for SELECT queries (10,000 rows max)"
             ),
+
+            createSubtitle("Recommended Workflow"),
+            createBulletList(
+                "Connect to the target database first",
+                "Inspect available tables from the left sidebar",
+                "Start with a small SELECT query before attempting larger joins",
+                "Use LIMIT or TOP whenever possible during exploration",
+                "Check results in the preview table before exporting",
+                "Use the Settings dialog to control timeout and other behavior when needed"
+            ),
+
+            createSubtitle("Prepared Parameters"),
+            createParagraph("QueryCraft supports named parameters using the :parameterName style. When your SQL contains named parameters, the application opens a parameter dialog and asks you to enter values before execution. This is useful when you want safer and more reusable SQL."),
+            createCodeBlock(
+                "SELECT *\n" +
+                "FROM customers\n" +
+                "WHERE customer_id = :id;\n\n" +
+                "SELECT *\n" +
+                "FROM orders\n" +
+                "WHERE order_date >= :startDate\n" +
+                "  AND order_date <= :endDate;"
+            ),
+
+            createSubtitle("Timeout Settings"),
+            createParagraph("Use the Settings button in the top bar to configure query timeout, result limits, and other runtime behavior. If a query takes too long, increase timeout carefully or optimize the SQL rather than setting extremely large timeouts immediately."),
             
             createSubtitle("Security Notes"),
             createParagraph("Passwords are stored in memory only and are not persisted to disk. " +
@@ -102,7 +146,8 @@ public class HelpDialog extends Dialog<Void> {
         
         content.getChildren().addAll(
             createTitle("MySQL / MariaDB Connection"),
-            
+            createParagraph("Use this section when connecting to MySQL-compatible servers such as local MySQL, MariaDB, or managed cloud services that provide MySQL wire protocol support."),
+             
             createSubtitle("Connection Parameters"),
             createBulletList(
                 "Host: MySQL server address (e.g., localhost, 192.168.1.100)",
@@ -111,6 +156,22 @@ public class HelpDialog extends Dialog<Void> {
                 "Username: MySQL user with appropriate privileges",
                 "Password: User password (not saved)",
                 "SSL: Enable for cloud databases (Neon, PlanetScale, etc.)"
+            ),
+
+            createSubtitle("Typical Connection Examples"),
+            createBulletList(
+                "Local development server: localhost:3306",
+                "Docker container exposed to host: 127.0.0.1:3306",
+                "Remote VM or LAN server: 192.168.x.x:3306",
+                "Cloud-hosted database: hostname provided by your DB vendor, often with SSL enabled"
+            ),
+
+            createSubtitle("Before You Connect"),
+            createBulletList(
+                "Verify that the MySQL service is running",
+                "Verify the user has permission to access the selected database",
+                "Confirm whether SSL is required by the server",
+                "If using a cloud host, confirm firewall or allow-list rules"
             ),
             
             createSubtitle("Sample Queries"),
@@ -126,7 +187,15 @@ public class HelpDialog extends Dialog<Void> {
                 "-- DELETE with confirmation\n" +
                 "DELETE FROM logs WHERE created_at < '2024-01-01';"
             ),
-            
+
+            createSubtitle("Practical MySQL Query Tips"),
+            createBulletList(
+                "Use LIMIT during exploration to avoid loading too many rows",
+                "Use ORDER BY with LIMIT if you need predictable result order",
+                "If column names contain spaces or reserved words, wrap them with backticks",
+                "For text search, consider LIKE '%keyword%' but remember it may be slow on large tables"
+            ),
+             
             createSubtitle("MySQL-Specific Features"),
             createBulletList(
                 "Uses SHOW TABLES to list tables",
@@ -134,7 +203,15 @@ public class HelpDialog extends Dialog<Void> {
                 "Supports LIMIT clause",
                 "MySQL backtick (`) identifier escaping"
             ),
-            
+
+            createSubtitle("Common Problems"),
+            createBulletList(
+                "Access denied - wrong username/password or missing privileges",
+                "Unknown database - database name is incorrect",
+                "Communications link failure - host/port unreachable or service down",
+                "SSL errors - server requires SSL but the option is disabled"
+            ),
+             
             createNote("For cloud MySQL (Neon.tech, PlanetScale), check 'Use SSL' option.")
         );
         
@@ -149,7 +226,8 @@ public class HelpDialog extends Dialog<Void> {
         
         content.getChildren().addAll(
             createTitle("PostgreSQL Connection"),
-            
+            createParagraph("Use this section for PostgreSQL servers running locally, on a VM, in Docker, or via a cloud database provider. PostgreSQL supports rich SQL features and is often stricter than MySQL in syntax and typing."),
+             
             createSubtitle("Connection Parameters"),
             createBulletList(
                 "Host: PostgreSQL server address (e.g., localhost, db.example.com)",
@@ -159,7 +237,15 @@ public class HelpDialog extends Dialog<Void> {
                 "Password: User password (not saved)",
                 "SSL: Enable for cloud databases"
             ),
-            
+
+            createSubtitle("Before You Connect"),
+            createBulletList(
+                "Make sure PostgreSQL is listening on the target host and port",
+                "Check pg_hba.conf or provider access rules if connection is rejected",
+                "Verify the selected database exists",
+                "Use SSL for managed providers when required"
+            ),
+             
             createSubtitle("Sample Queries"),
             createCodeBlock(
                 "-- Basic SELECT\n" +
@@ -177,7 +263,15 @@ public class HelpDialog extends Dialog<Void> {
                 ")\n" +
                 "SELECT * FROM recent_orders;"
             ),
-            
+
+            createSubtitle("Practical PostgreSQL Query Tips"),
+            createBulletList(
+                "Use ILIKE for case-insensitive text matching",
+                "Use CTEs to organize complex logic step by step",
+                "Be careful with quoted identifiers because they become case-sensitive",
+                "Use LIMIT and OFFSET for paging during analysis"
+            ),
+             
             createSubtitle("PostgreSQL-Specific Features"),
             createBulletList(
                 "Uses information_schema for table listing",
@@ -185,7 +279,15 @@ public class HelpDialog extends Dialog<Void> {
                 "Uses double quote (\") identifier escaping",
                 "Supports LIMIT and OFFSET"
             ),
-            
+
+            createSubtitle("Common Problems"),
+            createBulletList(
+                "Password authentication failed - wrong credentials",
+                "Database does not exist - incorrect database name",
+                "No pg_hba.conf entry - host/user not allowed",
+                "Connection timeout - network or firewall issue"
+            ),
+             
             createNote("PostgreSQL identifiers are case-sensitive when quoted.")
         );
         
@@ -200,7 +302,8 @@ public class HelpDialog extends Dialog<Void> {
         
         content.getChildren().addAll(
             createTitle("Microsoft SQL Server Connection"),
-            
+            createParagraph("Use this section for Microsoft SQL Server instances running locally, inside your network, or through hosted SQL Server environments. SQL Server syntax differs from MySQL and PostgreSQL in several important ways."),
+             
             createSubtitle("Connection Parameters"),
             createBulletList(
                 "Host: SQL Server address (e.g., localhost, server.example.com)",
@@ -210,7 +313,15 @@ public class HelpDialog extends Dialog<Void> {
                 "Password: User password (not saved)",
                 "SSL: Enable for encrypted connections"
             ),
-            
+
+            createSubtitle("Before You Connect"),
+            createBulletList(
+                "Confirm SQL Server service is running",
+                "Ensure TCP/IP is enabled in SQL Server configuration if needed",
+                "Verify SQL authentication is enabled if not using Windows-integrated access",
+                "Confirm firewall allows traffic on the configured port"
+            ),
+             
             createSubtitle("Sample Queries"),
             createCodeBlock(
                 "-- Basic SELECT with TOP\n" +
@@ -224,7 +335,15 @@ public class HelpDialog extends Dialog<Void> {
                 "-- DELETE with confirmation\n" +
                 "DELETE FROM temp_logs WHERE created_date < DATEADD(day, -30, GETDATE());"
             ),
-            
+
+            createSubtitle("Practical SQL Server Query Tips"),
+            createBulletList(
+                "Use TOP instead of LIMIT",
+                "Use square brackets for reserved names or names with spaces",
+                "Common date functions include GETDATE(), DATEADD(), DATEDIFF()",
+                "If you need deterministic TOP results, combine TOP with ORDER BY"
+            ),
+             
             createSubtitle("SQL Server-Specific Features"),
             createBulletList(
                 "Uses sys.objects for table listing",
@@ -232,7 +351,15 @@ public class HelpDialog extends Dialog<Void> {
                 "Uses square bracket ([ ]) identifier escaping",
                 "Supports T-SQL functions like GETDATE(), DATEADD()"
             ),
-            
+
+            createSubtitle("Common Problems"),
+            createBulletList(
+                "Login failed for user - wrong credentials or SQL auth disabled",
+                "Connection refused - SQL Server not reachable or TCP disabled",
+                "Database unavailable - wrong database name or lack of permission",
+                "Encryption/trust errors - SSL settings may need adjustment"
+            ),
+             
             createNote("SQL Server uses TOP instead of LIMIT. Use TOP 100 for row limiting.")
         );
         
@@ -247,7 +374,8 @@ public class HelpDialog extends Dialog<Void> {
         
         content.getChildren().addAll(
             createTitle("CSV File Query (via H2 Database)"),
-            
+            createParagraph("This mode lets you query CSV files as if they were database tables. It is ideal for quick ad hoc exploration, joins between multiple CSV files, and exporting transformed data without setting up a full database server."),
+             
             createSubtitle("How It Works"),
             createParagraph("CSV files are loaded into an in-memory H2 database. Each CSV file becomes a table " +
                 "with the same name as the file (without .csv extension). H2 automatically detects character encoding " +
@@ -260,7 +388,15 @@ public class HelpDialog extends Dialog<Void> {
                 "All .csv files in the folder will be loaded as tables",
                 "Connect to start querying"
             ),
-            
+
+            createSubtitle("Recommended Folder Structure"),
+            createBulletList(
+                "Keep related CSV files in a single folder",
+                "Use meaningful file names because they become table names",
+                "Prefer simple file names without unusual symbols when possible",
+                "Make sure the first row contains column headers"
+            ),
+             
             createSubtitle("Example CSV Files"),
             createCodeBlock(
                 "Folder: C:\\Data\\\n" +
@@ -290,7 +426,15 @@ public class HelpDialog extends Dialog<Void> {
                 "JOIN \"order_items\" oi ON o.\"id\" = oi.\"order_id\"\n" +
                 "JOIN \"products\" p ON oi.\"product_id\" = p.\"id\";"
             ),
-            
+
+            createSubtitle("Typical Use Cases"),
+            createBulletList(
+                "Join customer and order exports from another system",
+                "Preview CSV content before importing into a real database",
+                "Filter and export only selected rows",
+                "Create SQL INSERT scripts from CSV-based query results"
+            ),
+             
             createSubtitle("Important Rules"),
             createBulletList(
                 "ALWAYS use double quotes around table and column names",
@@ -317,7 +461,23 @@ public class HelpDialog extends Dialog<Void> {
                 "Math: ROUND(), ABS(), MOD()",
                 "Conditional: COALESCE(), NULLIF(), CASE WHEN"
             ),
-            
+
+            createSubtitle("Limitations"),
+            createBulletList(
+                "Data is loaded into memory, so very large files may consume significant RAM",
+                "Changes are not written back to CSV files",
+                "Type detection depends on file content and may not always match your expectations exactly",
+                "Complex production-scale transformations may be better done in a proper database engine"
+            ),
+
+            createSubtitle("Troubleshooting CSV Queries"),
+            createBulletList(
+                "If a table is not found, verify the CSV file exists in the selected folder",
+                "If column names behave strangely, inspect the header row in the file",
+                "If text looks garbled, verify the source file encoding",
+                "If results are slow, reduce file size or split very large CSV files"
+            ),
+             
             createWarning("Note: Data is loaded into memory. Very large CSV files (>100MB) may cause memory issues.")
         );
         

@@ -30,12 +30,14 @@ public class ResultTableSection extends VBox {
     private final Button nextButton;
     private final Button exportCsvButton;
     private final Button generateSqlButton;
+    private final Button streamModeButton;
     private final StackPane tableContainer;
     private final ProgressIndicator loadingIndicator;
     private final StackPane loadingOverlay;
     
     private QueryResult currentResult;
     private File lastExportDirectory;
+    private boolean streamingModeEnabled;
     private final ObservableList<Object[]> masterData = FXCollections.observableArrayList();
     private final FilteredList<Object[]> filteredData = new FilteredList<>(masterData);
     private int currentPage = 0;
@@ -121,7 +123,11 @@ public class ResultTableSection extends VBox {
         generateSqlButton.setOnAction(e -> generateSqlInserts());
         generateSqlButton.setDisable(true);
 
-        exportBar.getChildren().addAll(exportCsvButton, generateSqlButton);
+        streamModeButton = new Button("Streaming: OFF");
+        streamModeButton.getStyleClass().add("button-neutral");
+        streamModeButton.setOnAction(e -> toggleStreamingMode());
+
+        exportBar.getChildren().addAll(exportCsvButton, generateSqlButton, streamModeButton);
 
         this.getChildren().addAll(filterBar, resultInfoLabel, tableContainer, paginationBar, exportBar);
     }
@@ -258,6 +264,15 @@ public class ResultTableSection extends VBox {
     private void setExportButtonsEnabled(boolean enabled) {
         exportCsvButton.setDisable(!enabled);
         generateSqlButton.setDisable(!enabled);
+    }
+
+    private void toggleStreamingMode() {
+        streamingModeEnabled = !streamingModeEnabled;
+        streamModeButton.setText(streamingModeEnabled ? "Streaming: ON" : "Streaming: OFF");
+    }
+
+    public boolean isStreamingModeEnabled() {
+        return streamingModeEnabled;
     }
 
     private void exportToCsv() {

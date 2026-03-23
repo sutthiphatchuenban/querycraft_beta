@@ -15,6 +15,12 @@ module querycraft {
     requires org.fxmisc.undo;
     requires org.fxmisc.flowless;
     requires com.h2database;
+    
+    // Logging (automatic modules)
+    requires org.slf4j;
+    
+    // Connection Pooling (automatic module)
+    requires com.zaxxer.hikari;
 
     /*
      * NOTE: JDBC Drivers (MySQL, PostgreSQL, SQL Server) are
@@ -34,4 +40,5 @@ module querycraft {
     exports querycraft.ui;
     exports querycraft.ui.component;
     exports querycraft.util;
+    exports querycraft.exception;
 }

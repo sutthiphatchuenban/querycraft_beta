@@ -11,6 +11,8 @@ import javafx.scene.image.ImageView;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import querycraft.ui.MainController;
 
 /**
@@ -18,6 +20,7 @@ import querycraft.ui.MainController;
  */
 public class QueryCraftApp extends Application {
 
+    private static final Logger logger = LoggerFactory.getLogger(QueryCraftApp.class);
     private static final String APP_TITLE = "QueryCraft - Database Query Tool";
     private static final String APP_VERSION = "1.0.0";
 
@@ -40,7 +43,7 @@ public class QueryCraftApp extends Application {
             logoView.setFitWidth(120);
             logoView.setPreserveRatio(true);
         } catch (Exception e) {
-            System.err.println("Could not load logo for splash: " + e.getMessage());
+            logger.warn("Could not load logo for splash: {}", e.getMessage());
         }
 
         Label titleLabel = new Label("QueryCraft");
@@ -59,7 +62,7 @@ public class QueryCraftApp extends Application {
             String cssPath = getClass().getResource("/css/style.css").toExternalForm();
             splashScene.getStylesheets().add(cssPath);
         } catch (Exception e) {
-            System.err.println("Could not load CSS for splash: " + e.getMessage());
+            logger.warn("Could not load CSS for splash: {}", e.getMessage());
         }
 
         splashStage.initStyle(StageStyle.UNDECORATED);
@@ -101,14 +104,14 @@ public class QueryCraftApp extends Application {
                 showMainStage();
                 splashStage.close();
             } catch (Throwable ex) {
-                ex.printStackTrace();
+                logger.error("Failed to initialize Main UI", ex);
                 showErrorDialog("Failed to initialize Main UI", ex);
             }
         });
 
         loadTask.setOnFailed(e -> {
             Throwable ex = loadTask.getException();
-            if (ex != null) ex.printStackTrace();
+            if (ex != null) logger.error("Loading process failed", ex);
             showErrorDialog("Loading Process Failed", ex);
         });
 
@@ -140,7 +143,7 @@ public class QueryCraftApp extends Application {
             String cssPath = getClass().getResource("/css/style.css").toExternalForm();
             scene.getStylesheets().add(cssPath);
         } catch (Exception e) {
-            System.err.println("Could not load CSS: " + e.getMessage());
+            logger.warn("Could not load CSS: {}", e.getMessage());
         }
 
         // Configure stage
@@ -153,7 +156,7 @@ public class QueryCraftApp extends Application {
                 mainStage.getIcons().add(new Image(iconStream));
             }
         } catch (Exception e) {
-            System.err.println("Could not load application icon: " + e.getMessage());
+            logger.warn("Could not load application icon: {}", e.getMessage());
         }
 
         mainStage.setScene(scene);
@@ -173,16 +176,18 @@ public class QueryCraftApp extends Application {
     @Override
     public void stop() {
         // Cleanup when application closes
+        logger.info("Shutting down QueryCraft...");
         try {
             querycraft.service.DatabaseConnectionService.getInstance().disconnect();
             querycraft.service.QueryExecutorService.shutdown();
+            logger.info("QueryCraft shutdown complete");
         } catch (Exception e) {
-            // Ignore during shutdown
+            logger.error("Error during shutdown", e);
         }
     }
 
     public static void main(String[] args) {
-        System.out.println("QueryCraft v" + APP_VERSION);
+        logger.info("QueryCraft v{} starting...", APP_VERSION);
         launch(args);
     }
 }

@@ -72,6 +72,28 @@ if errorlevel 1 (
 echo [OK] RichTextFX and dependencies downloaded
 
 echo.
+echo Downloading Logging Libraries...
+powershell -Command "Invoke-WebRequest -Uri 'https://repo1.maven.org/maven2/org/slf4j/slf4j-api/2.0.12/slf4j-api-2.0.12.jar' -OutFile 'lib\slf4j-api-2.0.12.jar'"
+powershell -Command "Invoke-WebRequest -Uri 'https://repo1.maven.org/maven2/ch/qos/logback/logback-classic/1.5.0/logback-classic-1.5.0.jar' -OutFile 'lib\logback-classic-1.5.0.jar'"
+powershell -Command "Invoke-WebRequest -Uri 'https://repo1.maven.org/maven2/ch/qos/logback/logback-core/1.5.0/logback-core-1.5.0.jar' -OutFile 'lib\logback-core-1.5.0.jar'"
+if errorlevel 1 (
+    echo Failed to download logging libraries.
+    pause
+    exit /b 1
+)
+echo [OK] Logging libraries downloaded
+
+echo.
+echo Downloading HikariCP...
+powershell -Command "Invoke-WebRequest -Uri 'https://repo1.maven.org/maven2/com/zaxxer/HikariCP/5.1.0/HikariCP-5.1.0.jar' -OutFile 'lib\HikariCP-5.1.0.jar'"
+if errorlevel 1 (
+    echo Failed to download HikariCP.
+    pause
+    exit /b 1
+)
+echo [OK] HikariCP downloaded
+
+echo.
 echo ============================================
 echo All drivers downloaded successfully!
 echo Location: lib\

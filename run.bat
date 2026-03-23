@@ -99,6 +99,26 @@ if not exist "lib\wellbehavedfx-0.3.3.jar" (
     powershell -Command "& {$progressPreference='silentlyContinue'; Invoke-WebRequest -Uri 'https://repo1.maven.org/maven2/org/fxmisc/wellbehaved/wellbehavedfx/0.3.3/wellbehavedfx-0.3.3.jar' -OutFile 'lib\wellbehavedfx-0.3.3.jar'}"
 )
 
+REM === Download SLF4J and Logback ===
+if not exist "lib\slf4j-api-2.0.12.jar" (
+    echo Downloading SLF4J API...
+    powershell -Command "& {$progressPreference='silentlyContinue'; Invoke-WebRequest -Uri 'https://repo1.maven.org/maven2/org/slf4j/slf4j-api/2.0.12/slf4j-api-2.0.12.jar' -OutFile 'lib\slf4j-api-2.0.12.jar'}"
+)
+if not exist "lib\logback-classic-1.5.0.jar" (
+    echo Downloading Logback Classic...
+    powershell -Command "& {$progressPreference='silentlyContinue'; Invoke-WebRequest -Uri 'https://repo1.maven.org/maven2/ch/qos/logback/logback-classic/1.5.0/logback-classic-1.5.0.jar' -OutFile 'lib\logback-classic-1.5.0.jar'}"
+)
+if not exist "lib\logback-core-1.5.0.jar" (
+    echo Downloading Logback Core...
+    powershell -Command "& {$progressPreference='silentlyContinue'; Invoke-WebRequest -Uri 'https://repo1.maven.org/maven2/ch/qos/logback/logback-core/1.5.0/logback-core-1.5.0.jar' -OutFile 'lib\logback-core-1.5.0.jar'}"
+)
+
+REM === Download HikariCP ===
+if not exist "lib\HikariCP-5.1.0.jar" (
+    echo Downloading HikariCP...
+    powershell -Command "& {$progressPreference='silentlyContinue'; Invoke-WebRequest -Uri 'https://repo1.maven.org/maven2/com/zaxxer/HikariCP/5.1.0/HikariCP-5.1.0.jar' -OutFile 'lib\HikariCP-5.1.0.jar'}"
+)
+
 echo [OK] All Libraries Checked
 
 echo.
@@ -107,7 +127,7 @@ REM === Compile Java files ===
 echo Compiling Java files...
 
 REM === Setup Paths ===
-set MODULE_PATH=lib\javafx-base-21-win.jar;lib\javafx-controls-21-win.jar;lib\javafx-graphics-21-win.jar;lib\javafx-fxml-21-win.jar;lib\richtextfx-0.11.2.jar;lib\reactfx-2.0-M5.jar;lib\undofx-2.1.1.jar;lib\flowless-0.7.2.jar;lib\wellbehavedfx-0.3.3.jar;lib\mysql-connector-j-8.3.0.jar;lib\postgresql-42.7.2.jar;lib\mssql-jdbc-12.6.1.jre11.jar;lib\commons-csv-1.10.0.jar;lib\h2-2.2.224.jar
+set MODULE_PATH=lib\javafx-base-21-win.jar;lib\javafx-controls-21-win.jar;lib\javafx-graphics-21-win.jar;lib\javafx-fxml-21-win.jar;lib\richtextfx-0.11.2.jar;lib\reactfx-2.0-M5.jar;lib\undofx-2.1.1.jar;lib\flowless-0.7.2.jar;lib\wellbehavedfx-0.3.3.jar;lib\mysql-connector-j-8.3.0.jar;lib\postgresql-42.7.2.jar;lib\mssql-jdbc-12.6.1.jre11.jar;lib\commons-csv-1.10.0.jar;lib\h2-2.2.224.jar;lib\slf4j-api-2.0.12.jar;lib\logback-classic-1.5.0.jar;lib\logback-core-1.5.0.jar;lib\HikariCP-5.1.0.jar
 
 REM === Compile Java files (Modular) ===
 echo Compiling Java modules...
@@ -120,7 +140,8 @@ javac -encoding UTF-8 --module-path "%MODULE_PATH%" -d target\classes ^
     src\main\java\querycraft\service\handler\*.java ^
     src\main\java\querycraft\util\*.java ^
     src\main\java\querycraft\ui\*.java ^
-    src\main\java\querycraft\ui\component\*.java
+    src\main\java\querycraft\ui\component\*.java ^
+    src\main\java\querycraft\exception\*.java
 
 if errorlevel 1 goto compile_error
 

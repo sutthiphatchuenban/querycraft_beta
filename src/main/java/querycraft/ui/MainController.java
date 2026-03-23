@@ -8,7 +8,6 @@ import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import querycraft.model.ConnectionInfo;
 import querycraft.model.CsvConnectionInfo;
-import querycraft.model.DatabaseType;
 import querycraft.model.QueryResult;
 import querycraft.service.DatabaseConnectionService;
 import querycraft.service.QueryExecutorService;
@@ -21,6 +20,8 @@ public class MainController extends BorderPane implements querycraft.service.Con
 
     private final DatabaseConnectionService connectionService;
     private final QueryExecutorService queryExecutor;
+    private final querycraft.service.PreparedStatementService preparedStatementService;
+    private final querycraft.service.StreamingQueryService streamingQueryService;
 
     // UI Components (Refactored into sections)
     private final SidebarSection sidebarSection;
@@ -36,6 +37,11 @@ public class MainController extends BorderPane implements querycraft.service.Con
     public MainController() {
         this.connectionService = DatabaseConnectionService.getInstance();
         this.queryExecutor = new QueryExecutorService();
+        this.preparedStatementService = new querycraft.service.PreparedStatementService();
+        this.streamingQueryService = new querycraft.service.StreamingQueryService();
+        
+        // Load saved settings
+        loadSettings();
         
         // Register as observer
         this.connectionService.addObserver(this);
@@ -48,6 +54,12 @@ public class MainController extends BorderPane implements querycraft.service.Con
         initializeUI();
         setupListeners();
         updateConnectionStatus();
+    }
+
+    private void loadSettings() {
+        SettingsDialog settings = new SettingsDialog(queryExecutor);
+        int timeout = settings.getQueryTimeout();
+        queryExecutor.setQueryTimeout(timeout);
     }
 
     @Override
@@ -161,13 +173,17 @@ public class MainController extends BorderPane implements querycraft.service.Con
         helpButton.getStyleClass().add("button-neutral");
         helpButton.setOnAction(e -> showHelpDialog());
 
+        Button settingsButton = new Button("Settings");
+        settingsButton.getStyleClass().add("button-neutral");
+        settingsButton.setOnAction(e -> showSettingsDialog());
+
         dbInfoLabel = new Label("Not connected");
         dbInfoLabel.getStyleClass().add("db-info-label");
 
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
-        bar.getChildren().addAll(connectButton, disconnectButton, helpButton, spacer, dbInfoLabel);
+        bar.getChildren().addAll(connectButton, disconnectButton, helpButton, settingsButton, spacer, dbInfoLabel);
         return bar;
     }
 
@@ -196,6 +212,17 @@ public class MainController extends BorderPane implements querycraft.service.Con
         dialog.showAndWait();
     }
 
+    private void showSettingsDialog() {
+        SettingsDialog dialog = new SettingsDialog(queryExecutor);
+        dialog.initOwner(getScene().getWindow());
+        dialog.showAndWait().ifPresent(saved -> {
+            if (saved) {
+                dialog.saveSettings();
+                setStatus("Settings saved (Timeout: " + dialog.getQueryTimeout() + "s)");
+            }
+        });
+    }
+
     private void connect(ConnectionInfo info) {
         try {
             setStatus("Connecting...");
@@ -204,7 +231,7 @@ public class MainController extends BorderPane implements querycraft.service.Con
             }
             connectionService.connect(info);
             // UI updates now handled by onConnected observer method
-        } catch (Exception e) {
+        } catch (querycraft.exception.QueryCraftException e) {
             // Error handled by onConnectionFailed observer method
             showError("Connection Failed", e.getMessage());
         }
@@ -256,28 +283,47 @@ public class MainController extends BorderPane implements querycraft.service.Con
         String sql = querySection.getSqlText();
         if (sql == null || sql.trim().isEmpty()) return;
 
+        if (resultSection.isStreamingModeEnabled() && !isDelete && queryExecutor.isSelectQuery(sql)) {
+            executeStreamingQuery(sql);
+            return;
+        }
+
+        // Check for named parameters (:paramName)
+        if (sql.contains(":") && !isDelete) {
+            ParameterDialog paramDialog = new ParameterDialog(sql);
+            if (paramDialog.hasParameters()) {
+                paramDialog.initOwner(getScene().getWindow());
+                java.util.Map<String, Object> params = paramDialog.showAndWait().orElse(null);
+                if (params == null) return; // User cancelled
+                
+                // Execute with parameters using PreparedStatementService
+                executeWithParameters(sql, params);
+                return;
+            }
+        }
+
         sidebarSection.addToHistory(sql);
         
         // Safety check for query type vs action
         boolean queryIsDelete = queryExecutor.isDeleteQuery(sql);
         if (!isDelete && queryIsDelete) {
-            Alert alert = new Alert(Alert.AlertType.CONFIRMATION, 
-                "This query appears to be a DELETE statement. Are you sure you want to execute it as a SELECT?", 
+            Alert alert = new Alert(Alert.AlertType.CONFIRMATION,
+                "This query appears to be a DELETE statement. Are you sure you want to execute it as a SELECT?",
                 ButtonType.YES, ButtonType.NO);
             if (alert.showAndWait().orElse(ButtonType.NO) != ButtonType.YES) return;
         }
 
         if (isDelete && !queryIsDelete) {
-            Alert alert = new Alert(Alert.AlertType.CONFIRMATION, 
-                "The query doesn't appear to be a DELETE statement. Execute anyway?", 
+            Alert alert = new Alert(Alert.AlertType.CONFIRMATION,
+                "The query doesn't appear to be a DELETE statement. Execute anyway?",
                 ButtonType.YES, ButtonType.NO);
             if (alert.showAndWait().orElse(ButtonType.NO) != ButtonType.YES) return;
         }
 
         // Warning for all DELETE operations
         if (isDelete || queryIsDelete) {
-            Alert alert = new Alert(Alert.AlertType.CONFIRMATION, 
-                "Warning: This operation will modify data in the database. Proceed?", 
+            Alert alert = new Alert(Alert.AlertType.CONFIRMATION,
+                "Warning: This operation will modify data in the database. Proceed?",
                 ButtonType.YES, ButtonType.NO);
             if (alert.showAndWait().orElse(ButtonType.NO) != ButtonType.YES) return;
         }
@@ -296,8 +342,71 @@ public class MainController extends BorderPane implements querycraft.service.Con
             @Override
             public void onError(Exception e) {
                 Platform.runLater(() -> {
+                    String errorTitle = "Query Error";
+                    if (e instanceof querycraft.exception.QueryCraftException) {
+                        querycraft.exception.QueryCraftException qce = (querycraft.exception.QueryCraftException) e;
+                        switch (qce.getErrorCode()) {
+                            case QUERY_TIMEOUT -> errorTitle = "Query Timeout";
+                            case QUERY_VALIDATION_FAILED -> errorTitle = "Invalid Query";
+                            case CONNECTION_FAILED -> errorTitle = "Connection Error";
+                            default -> errorTitle = "Query Error";
+                        }
+                    }
+                    showError(errorTitle, e.getMessage());
+                    setStatus("Error: " + errorTitle);
+                    resultSection.setLoading(false);
+                });
+            }
+        });
+    }
+
+    private void executeWithParameters(String sql, java.util.Map<String, Object> params) {
+        sidebarSection.addToHistory(sql);
+        setStatus("Executing with parameters...");
+        resultSection.setLoading(true);
+        
+        new Thread(() -> {
+            try {
+                QueryResult result = preparedStatementService.executeQueryWithNamedParams(sql, params);
+                javafx.application.Platform.runLater(() -> {
+                    resultSection.displayResult(result);
+                    setStatus("Done (Prepared Statement)");
+                });
+            } catch (querycraft.exception.QueryCraftException e) {
+                javafx.application.Platform.runLater(() -> {
                     showError("Query Error", e.getMessage());
-                    setStatus("Error occurred");
+                    setStatus("Error: " + e.getErrorCode());
+                    resultSection.setLoading(false);
+                });
+            }
+        }).start();
+    }
+
+    private void executeStreamingQuery(String sql) {
+        sidebarSection.addToHistory(sql);
+        setStatus("Executing in streaming mode...");
+        resultSection.setLoading(true);
+
+        java.util.List<Object[]> streamedRows = java.util.Collections.synchronizedList(new java.util.ArrayList<>());
+        querycraft.model.QueryResult streamingResult = new querycraft.model.QueryResult();
+
+        streamingQueryService.streamQuery(sql, row -> streamedRows.add(row), new querycraft.service.StreamingQueryService.StreamCallback() {
+            @Override
+            public void onComplete(long totalRows, long durationMs) {
+                javafx.application.Platform.runLater(() -> {
+                    streamingResult.setRows(new java.util.ArrayList<>(streamedRows));
+                    streamingResult.setSelectQuery(true);
+                    streamingResult.setExecutionTimeMs(durationMs);
+                    resultSection.displayResult(streamingResult);
+                    setStatus("Streaming done: " + totalRows + " rows in " + durationMs + "ms");
+                });
+            }
+
+            @Override
+            public void onError(querycraft.exception.QueryCraftException e) {
+                javafx.application.Platform.runLater(() -> {
+                    showError("Streaming Query Error", e.getMessage());
+                    setStatus("Streaming error");
                     resultSection.setLoading(false);
                 });
             }

@@ -14,7 +14,6 @@ import querycraft.model.DatabaseType;
 import querycraft.service.DatabaseConnectionService;
 
 import java.io.File;
-import java.sql.SQLException;
 import java.util.prefs.Preferences;
 
 /**
@@ -423,7 +422,7 @@ public class ConnectionDialog extends Dialog<ConnectionInfo> {
                 showAlert(Alert.AlertType.INFORMATION, "Connection Successful",
                         "Successfully connected to " + info.getDatabaseType().getDisplayName());
             }
-        } catch (SQLException e) {
+        } catch (querycraft.exception.QueryCraftException e) {
             showAlert(Alert.AlertType.ERROR, "Connection Failed",
                     "Failed to connect: " + e.getMessage());
         }

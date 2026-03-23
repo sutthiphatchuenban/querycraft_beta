@@ -81,6 +81,25 @@
       <artifactId>richtextfx</artifactId>
       <version>0.11.2</version>
     </dependency>
+
+    <!-- SLF4J Logging -->
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+      <version>2.0.12</version>
+    </dependency>
+    <dependency>
+      <groupId>ch.qos.logback</groupId>
+      <artifactId>logback-classic</artifactId>
+      <version>1.5.0</version>
+    </dependency>
+
+    <!-- HikariCP Connection Pool -->
+    <dependency>
+      <groupId>com.zaxxer</groupId>
+      <artifactId>HikariCP</artifactId>
+      <version>5.1.0</version>
+    </dependency>
   </dependencies>
 
   <build>

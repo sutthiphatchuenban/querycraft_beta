@@ -7,6 +7,8 @@ import javafx.geometry.Insets;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import querycraft.model.ConnectionInfo;
+import querycraft.model.CsvConnectionInfo;
+import querycraft.model.DatabaseType;
 import querycraft.model.QueryResult;
 import querycraft.service.DatabaseConnectionService;
 import querycraft.service.QueryExecutorService;
@@ -52,7 +54,11 @@ public class MainController extends BorderPane implements querycraft.service.Con
     public void onConnected(ConnectionInfo info) {
         Platform.runLater(() -> {
             updateConnectionStatus();
-            fetchTables();
+            if (info instanceof CsvConnectionInfo) {
+                fetchTablesForCsv();
+            } else {
+                fetchTables();
+            }
             setStatus("Connected to " + info.getDatabase());
         });
     }
@@ -99,7 +105,13 @@ public class MainController extends BorderPane implements querycraft.service.Con
         sidebarSection.setListener(new SidebarSection.SidebarListener() {
             @Override
             public void onTableDoubleClicked(String tableName) {
-                querySection.setSqlText("SELECT * FROM " + tableName + " LIMIT 100");
+                // For CSV, don't add LIMIT
+                ConnectionInfo info = connectionService.getCurrentConnectionInfo();
+                if (info instanceof CsvConnectionInfo) {
+                    querySection.setSqlText("SELECT * FROM \"" + tableName + "\"");
+                } else {
+                    querySection.setSqlText("SELECT * FROM " + tableName + " LIMIT 100");
+                }
                 executeQuery(false);
             }
 
@@ -145,13 +157,17 @@ public class MainController extends BorderPane implements querycraft.service.Con
         disconnectButton.getStyleClass().add("button-neutral");
         disconnectButton.setOnAction(e -> disconnect());
 
+        Button helpButton = new Button("Help");
+        helpButton.getStyleClass().add("button-neutral");
+        helpButton.setOnAction(e -> showHelpDialog());
+
         dbInfoLabel = new Label("Not connected");
         dbInfoLabel.getStyleClass().add("db-info-label");
 
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
-        bar.getChildren().addAll(connectButton, disconnectButton, spacer, dbInfoLabel);
+        bar.getChildren().addAll(connectButton, disconnectButton, helpButton, spacer, dbInfoLabel);
         return bar;
     }
 
@@ -174,19 +190,52 @@ public class MainController extends BorderPane implements querycraft.service.Con
         dialog.showAndWait().ifPresent(this::connect);
     }
 
+    private void showHelpDialog() {
+        HelpDialog dialog = new HelpDialog();
+        dialog.initOwner(getScene().getWindow());
+        dialog.showAndWait();
+    }
+
     private void connect(ConnectionInfo info) {
         try {
             setStatus("Connecting...");
+            if (info instanceof CsvConnectionInfo) {
+                setStatus("Loading CSV file...");
+            }
             connectionService.connect(info);
             // UI updates now handled by onConnected observer method
         } catch (Exception e) {
             // Error handled by onConnectionFailed observer method
+            showError("Connection Failed", e.getMessage());
         }
     }
 
     private void disconnect() {
         connectionService.disconnect();
         // UI updates now handled by onDisconnected observer method
+    }
+
+    private void fetchTablesForCsv() {
+        if (!connectionService.isConnected()) return;
+        
+        ConnectionInfo info = connectionService.getCurrentConnectionInfo();
+        if (info instanceof CsvConnectionInfo) {
+            CsvConnectionInfo csvInfo = (CsvConnectionInfo) info;
+            Platform.runLater(() -> {
+                ObservableList<querycraft.model.DbTable> tables = FXCollections.observableArrayList();
+                java.util.List<String> rawNames = new java.util.ArrayList<>();
+                
+                // For CSV folder, add all CSV files as tables
+                for (CsvConnectionInfo.CsvFileInfo csvFile : csvInfo.getCsvFiles()) {
+                    tables.add(new querycraft.model.DbTable(csvFile.getTableName(), "CSV"));
+                    rawNames.add(csvFile.getTableName());
+                }
+                
+                sidebarSection.setTables(tables);
+                querySection.getEditor().setTableNames(rawNames);
+                setStatus("CSV folder loaded: " + csvInfo.getCsvFileCount() + " file(s)");
+            });
+        }
     }
 
     private void updateConnectionStatus() {

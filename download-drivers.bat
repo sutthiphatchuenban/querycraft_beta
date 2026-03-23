@@ -48,6 +48,16 @@ if errorlevel 1 (
 echo [OK] Commons CSV downloaded
 
 echo.
+echo Downloading H2 Database for CSV support...
+powershell -Command "Invoke-WebRequest -Uri 'https://repo1.maven.org/maven2/com/h2database/h2/2.2.224/h2-2.2.224.jar' -OutFile 'lib\h2-2.2.224.jar'"
+if errorlevel 1 (
+    echo Failed to download H2 Database.
+    pause
+    exit /b 1
+)
+echo [OK] H2 Database downloaded
+
+echo.
 echo Downloading RichTextFX 0.11.2 (Syntax Highlighting)...
 powershell -Command "Invoke-WebRequest -Uri 'https://repo1.maven.org/maven2/org/fxmisc/richtext/richtextfx/0.11.2/richtextfx-0.11.2.jar' -OutFile 'lib\richtextfx-0.11.2.jar'"
 powershell -Command "Invoke-WebRequest -Uri 'https://repo1.maven.org/maven2/org/reactfx/reactfx/2.0-M5/reactfx-2.0-M5.jar' -OutFile 'lib\reactfx-2.0-M5.jar'"

@@ -6,11 +6,14 @@ import javafx.scene.control.*;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
+import javafx.scene.layout.VBox;
 import javafx.stage.Modality;
 import querycraft.model.ConnectionInfo;
+import querycraft.model.CsvConnectionInfo;
 import querycraft.model.DatabaseType;
 import querycraft.service.DatabaseConnectionService;
 
+import java.io.File;
 import java.sql.SQLException;
 import java.util.prefs.Preferences;
 
@@ -22,6 +25,10 @@ public class ConnectionDialog extends Dialog<ConnectionInfo> {
     private final DatabaseConnectionService connectionService;
     private final Preferences prefs = Preferences.userNodeForPackage(ConnectionDialog.class);
     private static final int MAX_RECENT = 3;
+
+    // CSV folder specific fields
+    private File selectedCsvFolder;
+    private TextField csvFolderField;
 
     private static class RecentConnection {
         String type, host, port, database, username;
@@ -90,6 +97,7 @@ public class ConnectionDialog extends Dialog<ConnectionInfo> {
         typeCombo.setPrefWidth(300);
         typeCombo.setPrefHeight(30);
 
+        // Database connection fields
         TextField hostField = new TextField("localhost");
         hostField.setPrefWidth(300);
         hostField.setPrefHeight(30);
@@ -134,7 +142,66 @@ public class ConnectionDialog extends Dialog<ConnectionInfo> {
         passBox.setPrefWidth(300);
         CheckBox sslCheck = new CheckBox("Use SSL (Required for Neon/Cloud)");
         CheckBox rememberCheck = new CheckBox("Remember Connection");
-        rememberCheck.setSelected(true); // Default to checked as user wants history
+        rememberCheck.setSelected(true);
+
+        // CSV folder specific fields
+        csvFolderField = new TextField();
+        csvFolderField.setPrefWidth(250);
+        csvFolderField.setEditable(false);
+        csvFolderField.setPromptText("Select a folder with CSV files...");
+        
+        Button browseCsvButton = new Button("Browse...");
+        browseCsvButton.setPrefWidth(80);
+        browseCsvButton.setOnAction(e -> {
+            javafx.stage.DirectoryChooser dirChooser = new javafx.stage.DirectoryChooser();
+            dirChooser.setTitle("Select Folder with CSV Files");
+            File folder = dirChooser.showDialog(getOwner());
+            if (folder != null) {
+                selectedCsvFolder = folder;
+                csvFolderField.setText(folder.getAbsolutePath());
+            }
+        });
+        
+        HBox csvFolderBox = new HBox(5, csvFolderField, browseCsvButton);
+        
+        Label csvHintLabel = new Label("All .csv files in folder will be loaded as tables (auto-detect charset & delimiter)");
+        csvHintLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: #64748B;");
+
+        // Container for database fields
+        GridPane dbGrid = new GridPane();
+        dbGrid.setHgap(10);
+        dbGrid.setVgap(10);
+        dbGrid.setPadding(new Insets(0));
+        
+        dbGrid.add(new Label("Host:"), 0, 0);
+        dbGrid.add(hostField, 1, 0);
+        dbGrid.add(new Label("Port:"), 0, 1);
+        dbGrid.add(portField, 1, 1);
+        dbGrid.add(new Label("Database:"), 0, 2);
+        dbGrid.add(databaseField, 1, 2);
+        dbGrid.add(new Label("Username:"), 0, 3);
+        dbGrid.add(usernameField, 1, 3);
+        dbGrid.add(new Label("Password:"), 0, 4);
+        dbGrid.add(passBox, 1, 4);
+        dbGrid.add(sslCheck, 1, 5);
+
+        // Container for CSV fields
+        GridPane csvGrid = new GridPane();
+        csvGrid.setHgap(10);
+        csvGrid.setVgap(10);
+        csvGrid.setPadding(new Insets(0));
+        
+        csvGrid.add(new Label("CSV Folder:"), 0, 0);
+        csvGrid.add(csvFolderBox, 1, 0);
+        VBox csvHintBox = new VBox(csvHintLabel);
+        csvHintBox.setPadding(new Insets(5, 0, 0, 0));
+        csvGrid.add(csvHintBox, 0, 1, 2, 1);
+
+        // StackPane to switch between modes
+        StackPane contentStack = new StackPane();
+        contentStack.getChildren().addAll(dbGrid, csvGrid);
+        csvGrid.setVisible(false);
+        csvGrid.setManaged(false);
 
         // Handle recent selection
         recentCombo.setOnAction(e -> {
@@ -160,11 +227,21 @@ public class ConnectionDialog extends Dialog<ConnectionInfo> {
             }
         });
 
-        // Update default port when database type changes
+        // Update UI when database type changes
         typeCombo.setOnAction(e -> {
             DatabaseType selected = typeCombo.getValue();
             if (selected != null) {
-                portField.setText(String.valueOf(selected.getDefaultPort()));
+                boolean isCsv = selected == DatabaseType.CSV;
+                
+                // Switch between CSV and Database modes
+                dbGrid.setVisible(!isCsv);
+                dbGrid.setManaged(!isCsv);
+                csvGrid.setVisible(isCsv);
+                csvGrid.setManaged(isCsv);
+                
+                if (!isCsv) {
+                    portField.setText(String.valueOf(selected.getDefaultPort()));
+                }
             }
         });
 
@@ -174,24 +251,16 @@ public class ConnectionDialog extends Dialog<ConnectionInfo> {
         grid.setVgap(10);
         grid.setPadding(new Insets(20, 20, 10, 20));
 
-        grid.setPadding(new Insets(20, 20, 10, 20));
-
         grid.add(new Label("Recent:"), 0, 0);
         grid.add(recentBox, 1, 0);
         grid.add(new Label("Database Type:"), 0, 1);
         grid.add(typeCombo, 1, 1);
-        grid.add(new Label("Host:"), 0, 2);
-        grid.add(hostField, 1, 2);
-        grid.add(new Label("Port:"), 0, 3);
-        grid.add(portField, 1, 3);
-        grid.add(new Label("Database:"), 0, 4);
-        grid.add(databaseField, 1, 4);
-        grid.add(new Label("Username:"), 0, 5);
-        grid.add(usernameField, 1, 5);
-        grid.add(new Label("Password:"), 0, 6);
-        grid.add(passBox, 1, 6);
-        grid.add(sslCheck, 1, 7);
-        grid.add(rememberCheck, 1, 8);
+        
+        // Add the stack pane for mode switching
+        GridPane.setColumnSpan(contentStack, 2);
+        grid.add(contentStack, 0, 2);
+        
+        grid.add(rememberCheck, 1, 3);
 
         getDialogPane().setContent(grid);
 
@@ -204,29 +273,10 @@ public class ConnectionDialog extends Dialog<ConnectionInfo> {
         // Test connection button
         Button testButton = (Button) getDialogPane().lookupButton(testButtonType);
         testButton.addEventFilter(ActionEvent.ACTION, event -> {
-            try {
-                ConnectionInfo info = new ConnectionInfo(
-                        typeCombo.getValue(),
-                        hostField.getText(),
-                        Integer.parseInt(portField.getText()),
-                        databaseField.getText(),
-                        usernameField.getText(),
-                        passwordField.getText(),
-                        sslCheck.isSelected()
-                );
-
-            if (info != null) {
-                testConnection(info);
-            }
-            } catch (NumberFormatException e) {
-                showAlert(Alert.AlertType.ERROR, "Input Error", "Port must be a valid number.");
-            }
-            event.consume(); // Prevent the dialog from closing
-        });
-
-        // Result converter
-        setResultConverter(dialogButton -> {
-            if (dialogButton == connectButtonType) {
+            DatabaseType selectedType = typeCombo.getValue();
+            if (selectedType == DatabaseType.CSV) {
+                testCsvConnection();
+            } else {
                 try {
                     ConnectionInfo info = new ConnectionInfo(
                             typeCombo.getValue(),
@@ -238,29 +288,111 @@ public class ConnectionDialog extends Dialog<ConnectionInfo> {
                             sslCheck.isSelected()
                     );
 
-                    // Save to recent list if 'Remember' is checked
-                    if (rememberCheck.isSelected()) {
-                        RecentConnection current = new RecentConnection(
-                                info.getDatabaseType().name(),
-                                info.getHost(),
-                                String.valueOf(info.getPort()),
-                                info.getDatabase(),
-                                info.getUsername(),
-                                info.isUseSSL()
-                        );
-                        saveRecentConnection(current, recentList);
-                    }
-
-                    return info;
+                if (info != null) {
+                    testConnection(info);
+                }
                 } catch (NumberFormatException e) {
                     showAlert(Alert.AlertType.ERROR, "Input Error", "Port must be a valid number.");
-                    return null;
+                }
+            }
+            event.consume();
+        });
+
+        // Result converter
+        setResultConverter(dialogButton -> {
+            if (dialogButton == connectButtonType) {
+                DatabaseType selectedType = typeCombo.getValue();
+                
+                if (selectedType == DatabaseType.CSV) {
+                    return createCsvConnectionInfo();
+                } else {
+                    return createDatabaseConnectionInfo(typeCombo, hostField, portField, 
+                        databaseField, usernameField, passwordField, sslCheck, rememberCheck, recentList);
                 }
             }
             return null;
         });
     }
 
+    private ConnectionInfo createDatabaseConnectionInfo(ComboBox<DatabaseType> typeCombo,
+            TextField hostField, TextField portField, TextField databaseField,
+            TextField usernameField, PasswordField passwordField, CheckBox sslCheck,
+            CheckBox rememberCheck, java.util.List<RecentConnection> recentList) {
+        try {
+            ConnectionInfo info = new ConnectionInfo(
+                    typeCombo.getValue(),
+                    hostField.getText(),
+                    Integer.parseInt(portField.getText()),
+                    databaseField.getText(),
+                    usernameField.getText(),
+                    passwordField.getText(),
+                    sslCheck.isSelected()
+            );
+
+            // Save to recent list if 'Remember' is checked
+            if (rememberCheck.isSelected()) {
+                RecentConnection current = new RecentConnection(
+                        info.getDatabaseType().name(),
+                        info.getHost(),
+                        String.valueOf(info.getPort()),
+                        info.getDatabase(),
+                        info.getUsername(),
+                        info.isUseSSL()
+                );
+                saveRecentConnection(current, recentList);
+            }
+
+            return info;
+        } catch (NumberFormatException e) {
+            showAlert(Alert.AlertType.ERROR, "Input Error", "Port must be a valid number.");
+            return null;
+        }
+    }
+
+    private CsvConnectionInfo createCsvConnectionInfo() {
+        if (selectedCsvFolder == null) {
+            showAlert(Alert.AlertType.ERROR, "Input Error", "Please select a folder containing CSV files.");
+            return null;
+        }
+
+        CsvConnectionInfo info = new CsvConnectionInfo(selectedCsvFolder.getAbsolutePath());
+        
+        // Check if any CSV files found
+        if (info.getCsvFileCount() == 0) {
+            showAlert(Alert.AlertType.ERROR, "No CSV Files", 
+                "No CSV files found in the selected folder.\nPlease choose a folder that contains .csv files.");
+            return null;
+        }
+        
+        return info;
+    }
+
+    private void testCsvConnection() {
+        if (selectedCsvFolder == null) {
+            showAlert(Alert.AlertType.ERROR, "Test Failed", "Please select a folder first.");
+            return;
+        }
+        
+        if (!selectedCsvFolder.exists() || !selectedCsvFolder.isDirectory()) {
+            showAlert(Alert.AlertType.ERROR, "Test Failed", "Invalid folder: " + selectedCsvFolder.getAbsolutePath());
+            return;
+        }
+        
+        // Count CSV files
+        File[] csvFiles = selectedCsvFolder.listFiles((dir, name) -> 
+            name.toLowerCase().endsWith(".csv")
+        );
+        int count = csvFiles != null ? csvFiles.length : 0;
+        
+        if (count == 0) {
+            showAlert(Alert.AlertType.WARNING, "No CSV Files", 
+                "No .csv files found in the selected folder.");
+        } else {
+            showAlert(Alert.AlertType.INFORMATION, "Folder OK", 
+                "Found " + count + " CSV file(s) in:\n" + selectedCsvFolder.getName() + 
+                "\n\nFiles will be loaded as tables on connect.");
+        }
+    }
 
     private void testConnection(ConnectionInfo info) {
         try {

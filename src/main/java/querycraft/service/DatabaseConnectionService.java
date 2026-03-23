@@ -1,11 +1,13 @@
 package querycraft.service;
 
 import querycraft.model.ConnectionInfo;
+import querycraft.model.CsvConnectionInfo;
 import querycraft.model.DatabaseType;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -82,6 +84,11 @@ public class DatabaseConnectionService {
             // Load driver
             loadDriver(connectionInfo.getDatabaseType());
 
+            // Handle CSV connection specially
+            if (connectionInfo instanceof CsvConnectionInfo) {
+                return connectToCsv((CsvConnectionInfo) connectionInfo);
+            }
+
             // Create connection
             String jdbcUrl = connectionInfo.getJdbcUrl();
             currentConnection = java.sql.DriverManager.getConnection(
@@ -100,10 +107,45 @@ public class DatabaseConnectionService {
     }
 
     /**
+     * Connect to CSV files in a folder using H2 Database.
+     */
+    private Connection connectToCsv(CsvConnectionInfo csvInfo) throws SQLException {
+        String jdbcUrl = csvInfo.getJdbcUrl();
+        
+        // Create H2 connection
+        currentConnection = DriverManager.getConnection(jdbcUrl, "sa", "");
+        
+        // Load all CSV files as tables
+        try (Statement stmt = currentConnection.createStatement()) {
+            for (CsvConnectionInfo.CsvFileInfo csvFile : csvInfo.getCsvFiles()) {
+                String createTableSql = csvInfo.getCreateTableSql(csvFile);
+                stmt.execute(createTableSql);
+            }
+        } catch (SQLException e) {
+            // Close connection on error
+            try {
+                currentConnection.close();
+            } catch (SQLException ignored) {}
+            currentConnection = null;
+            throw new SQLException("Failed to load CSV files: " + e.getMessage(), e);
+        }
+        
+        currentConnectionInfo = csvInfo;
+        notifyConnected(csvInfo);
+        return currentConnection;
+    }
+
+    /**
      * Test a connection without storing it as the current connection.
      */
     public boolean testConnection(ConnectionInfo connectionInfo) throws SQLException {
         loadDriver(connectionInfo.getDatabaseType());
+
+        // For CSV, just check if folder exists and has CSV files
+        if (connectionInfo instanceof CsvConnectionInfo) {
+            CsvConnectionInfo csvInfo = (CsvConnectionInfo) connectionInfo;
+            return csvInfo.getCsvFileCount() > 0;
+        }
 
         try (Connection testConn = DriverManager.getConnection(
                 connectionInfo.getJdbcUrl(),

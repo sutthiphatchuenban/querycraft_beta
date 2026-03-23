@@ -15,15 +15,17 @@ mkdir target\bundle_input
 mkdir build_output
 
 REM 2. Setup Paths
-set MODULE_PATH=lib\javafx-base-21-win.jar;lib\javafx-controls-21-win.jar;lib\javafx-graphics-21-win.jar;lib\javafx-fxml-21-win.jar;lib\richtextfx-0.11.2.jar;lib\reactfx-2.0-M5.jar;lib\undofx-2.1.1.jar;lib\flowless-0.7.2.jar;lib\wellbehavedfx-0.3.3.jar;lib\mysql-connector-j-8.3.0.jar;lib\postgresql-42.7.2.jar;lib\mssql-jdbc-12.6.1.jre11.jar;lib\commons-csv-1.10.0.jar
+set MODULE_PATH=lib\javafx-base-21-win.jar;lib\javafx-controls-21-win.jar;lib\javafx-graphics-21-win.jar;lib\javafx-fxml-21-win.jar;lib\richtextfx-0.11.2.jar;lib\reactfx-2.0-M5.jar;lib\undofx-2.1.1.jar;lib\flowless-0.7.2.jar;lib\wellbehavedfx-0.3.3.jar;lib\mysql-connector-j-8.3.0.jar;lib\postgresql-42.7.2.jar;lib\mssql-jdbc-12.6.1.jre11.jar;lib\commons-csv-1.10.0.jar;lib\h2-2.2.224.jar
 
 REM 3. Compile Java source files (Modular)
 echo [2/5] Compiling Java modules...
 javac -encoding UTF-8 --module-path "%MODULE_PATH%" -d target\classes ^
       src\main\java\module-info.java ^
       src\main\java\querycraft\*.java ^
+      src\main\java\querycraft\dialect\*.java ^
       src\main\java\querycraft\model\*.java ^
       src\main\java\querycraft\service\*.java ^
+      src\main\java\querycraft\service\handler\*.java ^
       src\main\java\querycraft\ui\*.java ^
       src\main\java\querycraft\ui\component\*.java ^
       src\main\java\querycraft\util\*.java
@@ -57,7 +59,7 @@ jpackage ^
   --main-jar QueryApp.jar ^
   --main-class querycraft.QueryCraftApp ^
   --module-path "%MODULE_PATH%" ^
-  --add-modules javafx.controls,javafx.fxml,javafx.graphics,java.sql,java.naming,jdk.charsets,java.prefs,java.desktop ^
+  --add-modules javafx.controls,javafx.fxml,javafx.graphics,java.sql,java.naming,jdk.charsets,java.prefs,java.desktop,com.h2database ^
   --type app-image ^
   --icon "src\main\resources\images\logo.ico" ^
   --vendor "Antigravity" ^

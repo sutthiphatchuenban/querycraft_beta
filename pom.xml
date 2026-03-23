@@ -68,6 +68,13 @@
       <artifactId>commons-csv</artifactId>
       <version>1.10.0</version>
     </dependency>
+
+    <!-- H2 Database for CSV querying -->
+    <dependency>
+      <groupId>com.h2database</groupId>
+      <artifactId>h2</artifactId>
+      <version>2.2.224</version>
+    </dependency>
     <!-- RichTextFX for Syntax Highlighting -->
     <dependency>
       <groupId>org.fxmisc.richtext</groupId>

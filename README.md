@@ -29,28 +29,44 @@ QueryCraft is a JavaFX-based desktop application for database querying with supp
   - Proper value escaping and quoting
   - NULL handling
 
-## Project Structure
+## Project Structure (Refactored for OOP)
 
 ```
 src/main/java/querycraft/
 ├── QueryCraftApp.java              # Application entry point
-├── model/
-│   ├── DatabaseType.java           # Supported database types enum
+├── dialect/                        # Database-specific SQL dialects (Strategy Pattern)
+│   ├── DatabaseDialect.java        # Dialect interface
+│   ├── MySqlDialect.java           # MySQL implementation
+│   ├── PostgreSqlDialect.java      # PostgreSQL implementation
+│   └── SqlServerDialect.java       # SQL Server implementation
+├── model/                          # Data models and Enums
+│   ├── DatabaseType.java           # Refactored Enum using Dialects
 │   ├── ConnectionInfo.java         # Connection parameters model
 │   ├── ColumnInfo.java             # Column metadata model
 │   ├── QueryResult.java            # Query result wrapper
 │   └── ExportOptions.java          # CSV export options
-├── service/
-│   ├── DatabaseConnectionService.java  # JDBC connection management
-│   └── QueryExecutorService.java       # Query execution logic
-├── ui/
-│   ├── MainController.java         # Main UI controller
+├── service/                        # Business logic and services
+│   ├── ConnectionObserver.java     # Observer interface for DB events
+│   ├── DatabaseConnectionService.java # Refactored using Observer pattern
+│   ├── QueryExecutorService.java      # Refactored using Handler pattern
+│   └── handler/                    # SQL Command handlers (Command Pattern)
+│       ├── QueryHandler.java       # Handler interface
+│       ├── SelectHandler.java      # Handles SELECT/SHOW/DESC queries
+│       ├── UpdateHandler.java      # Handles INSERT/UPDATE/DELETE queries
+│       └── GenericHandler.java     # Fallback query handler
+├── ui/                             # JavaFX UI layer
+│   ├── MainController.java         # Main UI controller (Observer)
 │   ├── ConnectionDialog.java       # Database connection dialog
-│   ├── ExportDialog.java           # CSV export options dialog
-│   └── ExportConfig.java           # Export configuration
-└── util/
-    ├── CsvExporter.java            # CSV export utility
-    └── SqlInsertGenerator.java     # SQL INSERT generation utility
+│   ├── SqlEditor.java              # Enhanced SQL editor with highlighting
+│   └── component/                  # Reusable UI components
+│       ├── SidebarSection.java     # Refactored Sidebar (Observer)
+│       ├── QueryEditorSection.java # Shared query editor component
+│       └── ResultTableSection.java # Enhanced result table with Factory export
+└── util/                           # Utilities and Patterns
+    ├── DataExporter.java           # Exporter interface (Strategy)
+    ├── ExporterFactory.java        # Factory for creating exporters
+    ├── CsvExporter.java            # Refactored CSV export strategy
+    └── SqlInsertGenerator.java     # Refactored SQL INSERT strategy
 ```
 
 ## Requirements

@@ -1,3 +1,4 @@
+@SuppressWarnings("module")
 module querycraft {
     requires javafx.controls;
     requires javafx.fxml;
@@ -13,10 +14,11 @@ module querycraft {
     requires reactfx; // Required for EventStream in SqlEditor
     requires org.fxmisc.undo;
     requires org.fxmisc.flowless;
+    requires com.h2database;
 
-    /* 
-     * NOTE: JDBC Drivers and some internal dependencies are 
-     * loaded dynamically at runtime to avoid IDE warnings 
+    /*
+     * NOTE: JDBC Drivers (MySQL, PostgreSQL, SQL Server) are
+     * loaded dynamically at runtime to avoid IDE warnings
      * about unstable automatic module names.
      */
 

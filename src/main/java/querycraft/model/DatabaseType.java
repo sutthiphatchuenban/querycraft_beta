@@ -8,7 +8,8 @@ import querycraft.dialect.*;
 public enum DatabaseType {
     MYSQL("MySQL", "com.mysql.cj.jdbc.Driver", "jdbc:mysql://%s:%d/%s?useSSL=false&serverTimezone=UTC", 3306, new MySqlDialect()),
     POSTGRESQL("PostgreSQL", "org.postgresql.Driver", "jdbc:postgresql://%s:%d/%s", 5432, new PostgreSqlDialect()),
-    MSSQL("Microsoft SQL Server", "com.microsoft.sqlserver.jdbc.SQLServerDriver", "jdbc:sqlserver://%s:%d;databaseName=%s;encrypt=false", 1433, new SqlServerDialect());
+    MSSQL("Microsoft SQL Server", "com.microsoft.sqlserver.jdbc.SQLServerDriver", "jdbc:sqlserver://%s:%d;databaseName=%s;encrypt=false", 1433, new SqlServerDialect()),
+    CSV("CSV File (H2)", "org.h2.Driver", "jdbc:h2:mem:csvdb_%d;DB_CLOSE_DELAY=-1;IGNORECASE=TRUE", 0, new CsvDialect());
 
     private final String displayName;
     private final String driverClass;

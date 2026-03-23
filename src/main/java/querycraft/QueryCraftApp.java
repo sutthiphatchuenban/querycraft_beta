@@ -159,6 +159,7 @@ public class QueryCraftApp extends Application {
         mainStage.setScene(scene);
         mainStage.setMinWidth(800);
         mainStage.setMinHeight(600);
+        mainStage.setMaximized(true);
 
         // Handle close request
         mainStage.setOnCloseRequest(event -> {

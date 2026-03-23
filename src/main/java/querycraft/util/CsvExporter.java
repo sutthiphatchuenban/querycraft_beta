@@ -107,10 +107,6 @@ public class CsvExporter implements DataExporter {
             return options.getNullValue();
         }
 
-        if (value instanceof Date) {
-            return dateFormat.format((Date) value);
-        }
-
         if (value instanceof java.sql.Date) {
             return dateFormat.format(new Date(((java.sql.Date) value).getTime()));
         }
@@ -121,6 +117,10 @@ public class CsvExporter implements DataExporter {
 
         if (value instanceof java.sql.Time) {
             return dateFormat.format(new Date(((java.sql.Time) value).getTime()));
+        }
+
+        if (value instanceof Date) {
+            return dateFormat.format((Date) value);
         }
 
         return value.toString();

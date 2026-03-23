@@ -89,11 +89,9 @@ public class SqlEditor extends CodeArea {
         this.addEventFilter(javafx.scene.input.KeyEvent.KEY_PRESSED, e -> {
             if (suggestionPopup.isShowing()) {
                 if (e.getCode() == javafx.scene.input.KeyCode.DOWN) {
-                    suggestionList.requestFocus();
                     suggestionList.getSelectionModel().selectNext();
                     e.consume();
                 } else if (e.getCode() == javafx.scene.input.KeyCode.UP) {
-                    suggestionList.requestFocus();
                     suggestionList.getSelectionModel().selectPrevious();
                     e.consume();
                 } else if (e.getCode() == javafx.scene.input.KeyCode.ENTER || e.getCode() == javafx.scene.input.KeyCode.TAB) {
@@ -101,6 +99,7 @@ public class SqlEditor extends CodeArea {
                     e.consume();
                 } else if (e.getCode() == javafx.scene.input.KeyCode.ESCAPE) {
                     suggestionPopup.hide();
+                    e.consume();
                 }
             }
         });
@@ -160,6 +159,7 @@ public class SqlEditor extends CodeArea {
 
         this.replaceText(start, caretPos, selected);
         suggestionPopup.hide();
+        this.requestFocus();
     }
 
     public void setTableNames(java.util.List<String> tables) {

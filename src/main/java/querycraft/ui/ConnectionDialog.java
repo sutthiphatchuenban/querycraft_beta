@@ -287,15 +287,37 @@ public class ConnectionDialog extends Dialog<ConnectionInfo> {
                             passwordField.getText(),
                             sslCheck.isSelected()
                     );
-
-                if (info != null) {
                     testConnection(info);
-                }
                 } catch (NumberFormatException e) {
                     showAlert(Alert.AlertType.ERROR, "Input Error", "Port must be a valid number.");
                 }
             }
             event.consume();
+        });
+
+        // Connect connection button
+        Button connectButton = (Button) getDialogPane().lookupButton(connectButtonType);
+        connectButton.addEventFilter(ActionEvent.ACTION, event -> {
+            DatabaseType selectedType = typeCombo.getValue();
+            if (selectedType == DatabaseType.CSV) {
+                if (selectedCsvFolder == null) {
+                    showAlert(Alert.AlertType.ERROR, "Input Error", "Please select a folder containing CSV files.");
+                    event.consume();
+                    return;
+                }
+                CsvConnectionInfo temp = new CsvConnectionInfo(selectedCsvFolder.getAbsolutePath());
+                if (temp.getCsvFileCount() == 0) {
+                    showAlert(Alert.AlertType.ERROR, "No CSV Files", "No CSV files found in the selected folder.\nPlease choose a folder that contains .csv files.");
+                    event.consume();
+                }
+            } else {
+                try {
+                    Integer.parseInt(portField.getText());
+                } catch (NumberFormatException e) {
+                    showAlert(Alert.AlertType.ERROR, "Input Error", "Port must be a valid number.");
+                    event.consume();
+                }
+            }
         });
 
         // Result converter

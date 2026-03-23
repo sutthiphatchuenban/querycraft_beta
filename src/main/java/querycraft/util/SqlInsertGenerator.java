@@ -194,20 +194,20 @@ public class SqlInsertGenerator implements DataExporter {
         }
 
         // Date/Time types
-        if (value instanceof Date) {
-            return "'" + sdf.format((Date) value) + "'";
+        if (value instanceof java.sql.Timestamp) {
+            return "'" + value.toString() + "'";
         }
 
         if (value instanceof java.sql.Date) {
             return "'" + value.toString() + "'";
         }
 
-        if (value instanceof java.sql.Timestamp) {
+        if (value instanceof java.sql.Time) {
             return "'" + value.toString() + "'";
         }
 
-        if (value instanceof java.sql.Time) {
-            return "'" + value.toString() + "'";
+        if (value instanceof Date) {
+            return "'" + sdf.format((Date) value) + "'";
         }
 
         // Boolean

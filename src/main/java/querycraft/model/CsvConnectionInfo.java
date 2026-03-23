@@ -12,6 +12,7 @@ public class CsvConnectionInfo extends ConnectionInfo {
 
     private String csvFolderPath;
     private List<CsvFileInfo> csvFiles = new ArrayList<>();
+    private final long uniqueId;
 
     public static class CsvFileInfo {
         private final String fileName;
@@ -34,6 +35,7 @@ public class CsvConnectionInfo extends ConnectionInfo {
         setDatabaseType(DatabaseType.CSV);
         setHost("localhost");
         setPort(0);
+        this.uniqueId = System.currentTimeMillis();
     }
 
     public CsvConnectionInfo(String csvFolderPath) {
@@ -115,8 +117,7 @@ public class CsvConnectionInfo extends ConnectionInfo {
 
     @Override
     public String getJdbcUrl() {
-        // For CSV, we use a unique in-memory H2 database
-        long uniqueId = System.currentTimeMillis();
+        // For CSV, we use a unique in-memory H2 database created using the uniqueId instance field
         return String.format("jdbc:h2:mem:csvdb_%d;DB_CLOSE_DELAY=-1;IGNORECASE=TRUE", uniqueId);
     }
 

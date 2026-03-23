@@ -50,22 +50,22 @@ REM 5. Create App Image using jpackage
 echo [4/5] Creating App Bundle (EXE)...
 echo.
 
-REM Note: We don't use --module here to avoid jlink choosing automatic modules as core.
-REM Instead we use --input and explicitly add necessary platform modules.
+REM Note: Using --input with classpath instead of module-path to avoid jlink issues
+REM with automatic modules like richtextfx. All deps are in the input folder.
 jpackage ^
   --name QueryCraft ^
   --input target\bundle_input ^
   --dest build_output ^
   --main-jar QueryApp.jar ^
   --main-class querycraft.QueryCraftApp ^
-  --module-path "%MODULE_PATH%" ^
-  --add-modules javafx.controls,javafx.fxml,javafx.graphics,java.sql,java.naming,jdk.charsets,java.prefs,java.desktop,com.h2database ^
   --type app-image ^
   --icon "src\main\resources\images\logo.ico" ^
   --vendor "Antigravity" ^
   --description "QueryCraft - Database Query Tool" ^
   --app-version "1.0.0" ^
-  --java-options "-Dfile.encoding=UTF-8"
+  --java-options "-Dfile.encoding=UTF-8" ^
+  --java-options "--add-modules java.sql,java.naming,jdk.charsets,java.desktop" ^
+  --java-options "-cp ."
 
 if %ERRORLEVEL% neq 0 (
     echo.

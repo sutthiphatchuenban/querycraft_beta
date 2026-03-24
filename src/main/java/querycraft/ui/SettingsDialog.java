@@ -73,9 +73,12 @@ public class SettingsDialog extends Dialog<Boolean> {
         maxRowsSpinner.setEditable(true);
         maxRowsSpinner.setId("maxRowsSpinner");
 
-        Label maxRowsHint = new Label("Maximum rows to fetch per query");
+        Label maxRowsHint = new Label("Maximum rows to fetch per query (Normal Mode)");
         maxRowsHint.setStyle("-fx-font-size: 11px; -fx-text-fill: #64748B;");
 
+        Label streamingHint = new Label("💡 Use 'Streaming Mode: ON' for datasets > 50,000 rows.");
+        streamingHint.setStyle("-fx-font-size: 11px; -fx-text-fill: #2563eb; -fx-font-weight: bold;");
+        
         // Auto-format SQL
         CheckBox autoFormatCheck = new CheckBox("Auto-format SQL on paste");
         autoFormatCheck.setSelected(isAutoFormatEnabled());
@@ -93,9 +96,10 @@ public class SettingsDialog extends Dialog<Boolean> {
         grid.add(maxRowsLabel, 0, 2);
         grid.add(maxRowsSpinner, 1, 2);
         grid.add(maxRowsHint, 1, 3);
+        grid.add(streamingHint, 1, 4);
 
-        grid.add(autoFormatCheck, 0, 4, 2, 1);
-        grid.add(confirmDeleteCheck, 0, 5, 2, 1);
+        grid.add(autoFormatCheck, 0, 5, 2, 1);
+        grid.add(confirmDeleteCheck, 0, 6, 2, 1);
 
         return grid;
     }
@@ -175,6 +179,7 @@ public class SettingsDialog extends Dialog<Boolean> {
 
         // Apply to services
         queryExecutor.setQueryTimeout(timeoutSpinner.getValue());
+        queryExecutor.setMaxRows(maxRowsSpinner.getValue()); // Added this line
         DatabaseConnectionService.getInstance().applyRuntimeSettings(
             poolSizeSpinner.getValue(),
             connTimeoutSpinner.getValue()

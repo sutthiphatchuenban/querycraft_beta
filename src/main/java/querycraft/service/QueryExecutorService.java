@@ -25,6 +25,7 @@ public class QueryExecutorService {
     private final DatabaseConnectionService connectionService;
     private final java.util.List<querycraft.service.handler.QueryHandler> handlers = new java.util.ArrayList<>();
     private int queryTimeoutSeconds = DEFAULT_QUERY_TIMEOUT_SECONDS;
+    private int maxRows = 10000;
 
     public QueryExecutorService() {
         this.connectionService = DatabaseConnectionService.getInstance();
@@ -53,6 +54,15 @@ public class QueryExecutorService {
      */
     public int getQueryTimeout() {
         return queryTimeoutSeconds;
+    }
+
+    public void setMaxRows(int maxRows) {
+        this.maxRows = maxRows;
+        logger.debug("Max rows limit set to {}", maxRows);
+    }
+
+    public int getMaxRows() {
+        return maxRows;
     }
 
     /**
@@ -125,7 +135,7 @@ public class QueryExecutorService {
                 if (handler.canHandle(sql)) {
                     logger.debug("Using handler {} for query", handler.getCategory());
                     try {
-                        return handler.handle(sql, conn);
+                        return handler.handle(sql, conn, maxRows);
                     } catch (SQLException e) {
                         logger.error("Handler {} failed to execute query", handler.getCategory(), e);
                         throw new QueryCraftException(

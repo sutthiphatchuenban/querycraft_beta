@@ -103,6 +103,35 @@ public class SqlEditor extends CodeArea {
                 }
             }
         });
+
+        // Add robust shortcut handling for Thai layout on Windows
+        this.addEventFilter(javafx.scene.input.KeyEvent.KEY_PRESSED, e -> {
+            if (e.isControlDown()) {
+                // Check code name or text for fallback (handles Thai layout issues)
+                String key = e.getCode().getName().toUpperCase();
+                String text = e.getText().toUpperCase();
+                
+                if (key.equals("C") || text.equals("C")) {
+                    this.copy();
+                    e.consume();
+                } else if (key.equals("V") || text.equals("V")) {
+                    this.paste();
+                    e.consume();
+                } else if (key.equals("X") || text.equals("X")) {
+                    this.cut();
+                    e.consume();
+                } else if (key.equals("A") || text.equals("A")) {
+                    this.selectAll();
+                    e.consume();
+                } else if (key.equals("Z") || text.equals("Z")) {
+                    this.undo();
+                    e.consume();
+                } else if (key.equals("Y") || text.equals("Y")) {
+                    this.redo();
+                    e.consume();
+                }
+            }
+        });
     }
 
     private void showSuggestions() {

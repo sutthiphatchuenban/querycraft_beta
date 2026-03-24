@@ -16,7 +16,7 @@ public class GenericHandler extends BaseHandler {
     }
 
     @Override
-    public QueryResult handle(String sql, Connection conn) throws SQLException {
+    public QueryResult handle(String sql, Connection conn, int maxRows) throws SQLException {
         QueryResult result = new QueryResult();
         long startTime = System.currentTimeMillis();
 

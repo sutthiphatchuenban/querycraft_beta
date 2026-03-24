@@ -149,12 +149,12 @@ public class DatabaseConnectionService {
             notifyConnected(connectionInfo);
             return dataSource.getConnection();
             
-        } catch (SQLException e) {
+        } catch (Exception e) {
             logger.error("Database connection failed", e);
             notifyConnectionFailed(e);
             throw new QueryCraftException(
                 QueryCraftException.ErrorCode.CONNECTION_FAILED,
-                "Failed to connect to database: " + e.getMessage(),
+                "Failed to connect to database: " + (e.getCause() != null ? e.getCause().getMessage() : e.getMessage()),
                 e
             );
         }

@@ -17,7 +17,7 @@ public interface QueryHandler {
     /**
      * Execute the query and return a result.
      */
-    QueryResult handle(String sql, Connection conn) throws SQLException;
+    QueryResult handle(String sql, Connection conn, int maxRows) throws SQLException;
     
     /**
      * Get a display category name for this handler.

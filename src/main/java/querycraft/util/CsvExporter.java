@@ -24,6 +24,10 @@ public class CsvExporter implements DataExporter {
         this(new ExportOptions());
     }
 
+    public ExportOptions getOptions() {
+        return options;
+    }
+
     @Override
     public void export(QueryResult result, File file) throws IOException {
         export(result, file, this.options);

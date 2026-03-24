@@ -10,8 +10,7 @@ import java.util.List;
  */
 public class SelectHandler extends BaseHandler {
     
-    // Rows limit for safety
-    private static final int MAX_ROWS = 10000;
+    // Use maxRows from parameter
 
     @Override
     public boolean canHandle(String sql) {
@@ -24,13 +23,13 @@ public class SelectHandler extends BaseHandler {
     }
 
     @Override
-    public QueryResult handle(String sql, Connection conn) throws SQLException {
+    public QueryResult handle(String sql, Connection conn, int maxRows) throws SQLException {
         QueryResult result = new QueryResult();
         result.setSelectQuery(true);
         long startTime = System.currentTimeMillis();
 
         try (Statement stmt = conn.createStatement()) {
-            stmt.setMaxRows(MAX_ROWS);
+            stmt.setMaxRows(maxRows);
             try (ResultSet rs = stmt.executeQuery(sql)) {
                 ResultSetMetaData metaData = rs.getMetaData();
                 int count = metaData.getColumnCount();
@@ -45,6 +44,9 @@ public class SelectHandler extends BaseHandler {
                     rows.add(row);
                 }
                 result.setRows(rows);
+                if (rows.size() >= maxRows && maxRows > 0) {
+                    result.setTruncated(true);
+                }
             }
         }
         

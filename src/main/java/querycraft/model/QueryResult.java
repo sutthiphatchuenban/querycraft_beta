@@ -14,11 +14,21 @@ public class QueryResult {
     private int affectedRows;
     private String errorMessage;
     private long executionTimeMs;
+    private boolean truncated;
 
     public QueryResult() {
         this.columns = new ArrayList<>();
         this.rows = new ArrayList<>();
         this.isSelectQuery = true;
+        this.truncated = false;
+    }
+
+    public boolean isTruncated() {
+        return truncated;
+    }
+
+    public void setTruncated(boolean truncated) {
+        this.truncated = truncated;
     }
 
     public List<ColumnInfo> getColumns() {

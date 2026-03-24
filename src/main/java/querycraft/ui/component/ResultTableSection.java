@@ -34,6 +34,7 @@ public class ResultTableSection extends VBox {
     private final StackPane tableContainer;
     private final ProgressIndicator loadingIndicator;
     private final StackPane loadingOverlay;
+    private final Label truncatedWarningLabel;
     
     private QueryResult currentResult;
     private File lastExportDirectory;
@@ -68,16 +69,23 @@ public class ResultTableSection extends VBox {
         
         filterField.textProperty().addListener((obs, oldV, newV) -> filterDebounce.playFromStart());
 
-        filterBar.getChildren().addAll(filterLabel, filterField);
-
         resultInfoLabel = new Label("No results to display");
         resultInfoLabel.getStyleClass().add("result-info-label");
+        
+        truncatedWarningLabel = new Label("[!] RESULTS TRUNCATED. Use 'Streaming Mode: ON' to see all rows.");
+        truncatedWarningLabel.getStyleClass().addAll("badge", "badge-warning", "truncated-warning");
+        truncatedWarningLabel.setVisible(false);
+        truncatedWarningLabel.setManaged(false);
+
+        HBox.setMargin(truncatedWarningLabel, new Insets(0, 0, 0, 10));
+        filterBar.getChildren().addAll(filterLabel, filterField, truncatedWarningLabel);
 
         resultTable = new TableView<>();
         VBox.setVgrow(resultTable, Priority.ALWAYS);
         resultTable.getSelectionModel().setCellSelectionEnabled(true);
         resultTable.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
         resultTable.setPlaceholder(new Label("Execute a query to see results"));
+        resultTable.setColumnResizePolicy(TableView.UNCONSTRAINED_RESIZE_POLICY);
 
         // Loading Overlay
         loadingIndicator = new ProgressIndicator();
@@ -137,14 +145,15 @@ public class ResultTableSection extends VBox {
     private void setupTableContextMenu() {
         ContextMenu ctx = new ContextMenu();
         MenuItem copyItem = new MenuItem("Copy Selection");
-        copyItem.setAccelerator(new KeyCodeCombination(KeyCode.C, KeyCombination.CONTROL_ANY));
+        copyItem.setAccelerator(KeyCombination.valueOf("Shortcut+C"));
         copyItem.setOnAction(e -> copySelectionToClipboard());
         
         ctx.getItems().add(copyItem);
         resultTable.setContextMenu(ctx);
         
+        final KeyCombination copyCombo = KeyCombination.valueOf("Shortcut+C");
         resultTable.setOnKeyPressed(e -> {
-            if (e.isControlDown() && e.getCode() == KeyCode.C) {
+            if (copyCombo.match(e)) {
                 copySelectionToClipboard();
                 e.consume();
             } else if (e.getCode() == KeyCode.ESCAPE) {
@@ -160,6 +169,10 @@ public class ResultTableSection extends VBox {
         this.resultTable.getColumns().clear();
         this.masterData.clear();
         this.filterField.clear();
+
+        // Show/hide truncation warning
+        truncatedWarningLabel.setVisible(result != null && result.isTruncated());
+        truncatedWarningLabel.setManaged(result != null && result.isTruncated());
 
         if (result == null) {
             setLoading(false);
@@ -184,7 +197,19 @@ public class ResultTableSection extends VBox {
             for (int i = 0; i < result.getColumns().size(); i++) {
                 final int colIndex = i;
                 TableColumn<Object[], Object> col = new TableColumn<>(result.getColumns().get(i).getName());
-                col.setCellValueFactory(data -> new javafx.beans.property.SimpleObjectProperty<>(data.getValue()[colIndex]));
+                
+                // Calculate reasonable widths based on header name
+                double headerWidth = col.getText().length() * 12.0 + 30.0;
+                col.setMinWidth(60);
+                col.setPrefWidth(Math.max(100, headerWidth));
+
+                col.setCellValueFactory(data -> {
+                    Object[] row = data.getValue();
+                    if (row == null || colIndex >= row.length) {
+                        return new javafx.beans.property.SimpleObjectProperty<>(null);
+                    }
+                    return new javafx.beans.property.SimpleObjectProperty<>(row[colIndex]);
+                });
                 resultTable.getColumns().add(col);
             }
 
@@ -213,10 +238,26 @@ public class ResultTableSection extends VBox {
         this.masterData.clear();
         this.filterField.clear();
 
+        // Hide truncation warning for streaming
+        truncatedWarningLabel.setVisible(false);
+        truncatedWarningLabel.setManaged(false);
+
         for (int i = 0; i < columns.size(); i++) {
             final int colIndex = i;
             TableColumn<Object[], Object> col = new TableColumn<>(columns.get(i).getName());
-            col.setCellValueFactory(data -> new javafx.beans.property.SimpleObjectProperty<>(data.getValue()[colIndex]));
+            
+            // Calculate reasonable widths based on header name
+            double headerWidth = col.getText().length() * 12.0 + 30.0;
+            col.setMinWidth(60);
+            col.setPrefWidth(Math.max(100, headerWidth));
+
+            col.setCellValueFactory(data -> {
+                Object[] row = data.getValue();
+                if (row == null || colIndex >= row.length) {
+                    return new javafx.beans.property.SimpleObjectProperty<>(null);
+                }
+                return new javafx.beans.property.SimpleObjectProperty<>(row[colIndex]);
+            });
             resultTable.getColumns().add(col);
         }
 
@@ -236,7 +277,14 @@ public class ResultTableSection extends VBox {
         setLoading(false);
         if (this.currentResult != null) {
             this.currentResult.setExecutionTimeMs(durationMs);
+            // Set truncated status if totalRows is less than masterData.size() (or some other criteria)
+            // For now, assuming streaming implies not truncated unless explicitly set
+            this.currentResult.setTruncated(false); 
         }
+        // Hide truncation warning when streaming finishes
+        truncatedWarningLabel.setVisible(false);
+        truncatedWarningLabel.setManaged(false);
+
         updateTableData();
         setExportButtonsEnabled(!this.masterData.isEmpty());
     }
@@ -245,6 +293,9 @@ public class ResultTableSection extends VBox {
         setLoading(false);
         resultInfoLabel.setText("Streaming Error: " + errorMsg);
         resultInfoLabel.setStyle("-fx-text-fill: #f44336;");
+        // Hide truncation warning on error
+        truncatedWarningLabel.setVisible(false);
+        truncatedWarningLabel.setManaged(false);
     }
 
     private void applyFilter() {
@@ -297,8 +348,15 @@ public class ResultTableSection extends VBox {
 
         int totalDocs = filteredData.size();
         int totalPages = getTotalPages();
-        resultInfoLabel.setText(String.format("Showing %d-%d of %d matches (Page %d of %d) | Total %d rows in result", 
-                start + 1, end, totalDocs, currentPage + 1, totalPages, currentResult.getRowCount()));
+        String info = String.format("Showing %d-%d of %d matches (Page %d of %d)", 
+                start + 1, end, totalDocs, currentPage + 1, totalPages);
+        
+        if (currentResult != null && currentResult.isTruncated()) {
+            info += String.format(" | Total %d rows in result (⚠️ TRUNCATED)", currentResult.getRowCount());
+        } else {
+            info += String.format(" | Total %d rows in result", masterData.size());
+        }
+        resultInfoLabel.setText(info);
     }
 
     private void updatePaginationButtons() {

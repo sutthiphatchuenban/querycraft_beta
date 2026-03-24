@@ -4,8 +4,11 @@ import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
+import javafx.scene.input.KeyCombination;
 import querycraft.model.ConnectionInfo;
 import querycraft.model.CsvConnectionInfo;
 import querycraft.model.QueryResult;
@@ -18,6 +21,8 @@ import querycraft.ui.component.*;
  */
 public class MainController extends BorderPane implements querycraft.service.ConnectionObserver {
 
+    private static final Logger logger = LoggerFactory.getLogger(MainController.class);
+    
     private final DatabaseConnectionService connectionService;
     private final QueryExecutorService queryExecutor;
     private final querycraft.service.PreparedStatementService preparedStatementService;
@@ -27,6 +32,7 @@ public class MainController extends BorderPane implements querycraft.service.Con
     private final SidebarSection sidebarSection;
     private final QueryEditorSection querySection;
     private final ResultTableSection resultSection;
+    private long currentQuerySession = 0;
     
     // Top & Bottom bars
     private Label statusLabel;
@@ -53,13 +59,14 @@ public class MainController extends BorderPane implements querycraft.service.Con
 
         initializeUI();
         setupListeners();
+        setupShortcuts();
         updateConnectionStatus();
     }
 
     private void loadSettings() {
-        SettingsDialog settings = new SettingsDialog(queryExecutor);
-        int timeout = settings.getQueryTimeout();
-        queryExecutor.setQueryTimeout(timeout);
+        java.util.prefs.Preferences prefs = java.util.prefs.Preferences.userNodeForPackage(SettingsDialog.class);
+        queryExecutor.setQueryTimeout(prefs.getInt("queryTimeout", 30));
+        queryExecutor.setMaxRows(prefs.getInt("maxRows", 10000));
     }
 
     @Override
@@ -87,8 +94,17 @@ public class MainController extends BorderPane implements querycraft.service.Con
     @Override
     public void onConnectionFailed(Exception e) {
         Platform.runLater(() -> {
-            showError("Connection Failed", e.getMessage());
-            setStatus("Connection Failed");
+            // Extract the most meaningful message (often buried in the cause for Hikari/JDBC)
+            String message = e.getMessage();
+            if (e.getCause() != null && e.getCause().getMessage() != null) {
+                message = e.getCause().getMessage();
+            }
+            
+            showError("Connection Failed", message);
+            setStatus("Connection Error: " + message);
+            
+            // Re-enable connect button if it was disabled during attempt
+            updateConnectionStatus();
         });
     }
 
@@ -194,10 +210,31 @@ public class MainController extends BorderPane implements querycraft.service.Con
         statusLabel.getStyleClass().add("status-label");
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
-        Label appLabel = new Label("QueryCraft v1.1 Refactored");
+        Label appLabel = new Label("QueryCraft v1.0.0");
         appLabel.getStyleClass().add("status-label");
         bar.getChildren().addAll(statusLabel, spacer, appLabel);
         return bar;
+    }
+
+    private void setupShortcuts() {
+        final KeyCombination executeCombo = KeyCombination.valueOf("Shortcut+Enter");
+        final KeyCombination formatCombo = KeyCombination.valueOf("Shortcut+F");
+
+        this.addEventFilter(javafx.scene.input.KeyEvent.KEY_PRESSED, e -> {
+            if (executeCombo.match(e)) {
+                executeQuery(false);
+                e.consume();
+            } else if (formatCombo.match(e)) {
+                formatSql();
+                e.consume();
+            } else if (e.isControlDown()) {
+                // Specialized fallback for ENTER
+                if (e.getCode() == javafx.scene.input.KeyCode.ENTER) {
+                    executeQuery(false);
+                    e.consume();
+                }
+            }
+        });
     }
 
     private void showConnectionDialog() {
@@ -231,9 +268,12 @@ public class MainController extends BorderPane implements querycraft.service.Con
             }
             connectionService.connect(info);
             // UI updates now handled by onConnected observer method
-        } catch (querycraft.exception.QueryCraftException e) {
-            // Error handled by onConnectionFailed observer method
-            showError("Connection Failed", e.getMessage());
+        } catch (Exception e) {
+            // We catch general Exception here to prevent crashes from Hikari RuntimeExceptions.
+            // Note: DatabaseConnectionService.connect now notifies observers on failure, 
+            // so onConnectionFailed(e) will be called automatically and show the alert.
+            logger.error("Connection attempt failed unexpectedly", e);
+            setStatus("Connection failed");
         }
     }
 
@@ -330,31 +370,36 @@ public class MainController extends BorderPane implements querycraft.service.Con
 
         setStatus("Executing...");
         resultSection.setLoading(true);
+        final long sessionId = ++currentQuerySession;
         queryExecutor.executeQueryAsync(sql, new QueryExecutorService.QueryCallback() {
             @Override
             public void onSuccess(QueryResult result) {
                 Platform.runLater(() -> {
-                    resultSection.displayResult(result);
-                    setStatus("Done in " + result.getExecutionTimeMs() + "ms");
+                    if (sessionId == currentQuerySession) {
+                        resultSection.displayResult(result);
+                        setStatus("Done in " + result.getExecutionTimeMs() + "ms");
+                    }
                 });
             }
 
             @Override
             public void onError(Exception e) {
                 Platform.runLater(() -> {
-                    String errorTitle = "Query Error";
-                    if (e instanceof querycraft.exception.QueryCraftException) {
-                        querycraft.exception.QueryCraftException qce = (querycraft.exception.QueryCraftException) e;
-                        switch (qce.getErrorCode()) {
-                            case QUERY_TIMEOUT -> errorTitle = "Query Timeout";
-                            case QUERY_VALIDATION_FAILED -> errorTitle = "Invalid Query";
-                            case CONNECTION_FAILED -> errorTitle = "Connection Error";
-                            default -> errorTitle = "Query Error";
+                    if (sessionId == currentQuerySession) {
+                        String errorTitle = "Query Error";
+                        if (e instanceof querycraft.exception.QueryCraftException) {
+                            querycraft.exception.QueryCraftException qce = (querycraft.exception.QueryCraftException) e;
+                            switch (qce.getErrorCode()) {
+                                case QUERY_TIMEOUT -> errorTitle = "Query Timeout";
+                                case QUERY_VALIDATION_FAILED -> errorTitle = "Invalid Query";
+                                case CONNECTION_FAILED -> errorTitle = "Connection Error";
+                                default -> errorTitle = "Query Error";
+                            }
                         }
+                        showError(errorTitle, e.getMessage());
+                        setStatus("Error: " + errorTitle);
+                        resultSection.setLoading(false);
                     }
-                    showError(errorTitle, e.getMessage());
-                    setStatus("Error: " + errorTitle);
-                    resultSection.setLoading(false);
                 });
             }
         });
@@ -365,18 +410,23 @@ public class MainController extends BorderPane implements querycraft.service.Con
         setStatus("Executing with parameters...");
         resultSection.setLoading(true);
         
+        final long sessionId = ++currentQuerySession;
         new Thread(() -> {
             try {
                 QueryResult result = preparedStatementService.executeQueryWithNamedParams(sql, params);
                 javafx.application.Platform.runLater(() -> {
-                    resultSection.displayResult(result);
-                    setStatus("Done (Prepared Statement)");
+                    if (sessionId == currentQuerySession) {
+                        resultSection.displayResult(result);
+                        setStatus("Done (Prepared Statement)");
+                    }
                 });
             } catch (querycraft.exception.QueryCraftException e) {
                 javafx.application.Platform.runLater(() -> {
-                    showError("Query Error", e.getMessage());
-                    setStatus("Error: " + e.getErrorCode());
-                    resultSection.setLoading(false);
+                    if (sessionId == currentQuerySession) {
+                        showError("Query Error", e.getMessage());
+                        setStatus("Error: " + e.getErrorCode());
+                        resultSection.setLoading(false);
+                    }
                 });
             }
         }).start();
@@ -385,6 +435,9 @@ public class MainController extends BorderPane implements querycraft.service.Con
     private void executeStreamingQuery(String sql) {
         sidebarSection.addToHistory(sql);
         setStatus("Executing in streaming mode...");
+        
+        final long sessionId = ++currentQuerySession;
+        resultSection.setLoading(true);
 
         java.util.List<Object[]> batch = new java.util.ArrayList<>();
         final int BATCH_SIZE = 500;
@@ -392,7 +445,9 @@ public class MainController extends BorderPane implements querycraft.service.Con
         streamingQueryService.streamQuery(sql, 
             cols -> {
                 javafx.application.Platform.runLater(() -> {
-                    resultSection.initializeStreaming(cols);
+                    if (sessionId == currentQuerySession) {
+                        resultSection.initializeStreaming(cols);
+                    }
                 });
             },
             row -> {
@@ -402,7 +457,9 @@ public class MainController extends BorderPane implements querycraft.service.Con
                         java.util.List<Object[]> batchToProcess = new java.util.ArrayList<>(batch);
                         batch.clear();
                         javafx.application.Platform.runLater(() -> {
-                            resultSection.addStreamingBatch(batchToProcess);
+                            if (sessionId == currentQuerySession) {
+                                resultSection.addStreamingBatch(batchToProcess);
+                            }
                         });
                     }
                 }
@@ -411,23 +468,27 @@ public class MainController extends BorderPane implements querycraft.service.Con
                 @Override
                 public void onComplete(long totalRows, long durationMs) {
                     javafx.application.Platform.runLater(() -> {
-                        synchronized (batch) {
-                            if (!batch.isEmpty()) {
-                                resultSection.addStreamingBatch(new java.util.ArrayList<>(batch));
-                                batch.clear();
+                        if (sessionId == currentQuerySession) {
+                            synchronized (batch) {
+                                if (!batch.isEmpty()) {
+                                    resultSection.addStreamingBatch(new java.util.ArrayList<>(batch));
+                                    batch.clear();
+                                }
                             }
+                            resultSection.finishStreaming(durationMs, totalRows);
+                            setStatus("Streaming done: " + totalRows + " rows in " + durationMs + "ms");
                         }
-                        resultSection.finishStreaming(durationMs, totalRows);
-                        setStatus("Streaming done: " + totalRows + " rows in " + durationMs + "ms");
                     });
                 }
 
                 @Override
                 public void onError(querycraft.exception.QueryCraftException e) {
                     javafx.application.Platform.runLater(() -> {
-                        showError("Streaming Query Error", e.getMessage());
-                        setStatus("Streaming error");
-                        resultSection.failStreaming(e.getMessage());
+                        if (sessionId == currentQuerySession) {
+                            showError("Streaming Query Error", e.getMessage());
+                            setStatus("Streaming error");
+                            resultSection.failStreaming(e.getMessage());
+                        }
                     });
                 }
             }

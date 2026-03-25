@@ -196,6 +196,14 @@ public class SqlEditor extends CodeArea {
     }
 
     private static StyleSpans<Collection<String>> computeHighlighting(String text) {
+        // Performance safeguard: Skip regex highlighting for massive text (e.g., large SQL dumps)
+        // to prevent the JavaFX UI thread from hanging or crashing.
+        if (text.length() > 50000) {
+            StyleSpansBuilder<Collection<String>> spansBuilder = new StyleSpansBuilder<>();
+            spansBuilder.add(Collections.emptyList(), text.length());
+            return spansBuilder.create();
+        }
+
         Matcher matcher = PATTERN.matcher(text);
         int lastKwEnd = 0;
         StyleSpansBuilder<Collection<String>> spansBuilder = new StyleSpansBuilder<>();

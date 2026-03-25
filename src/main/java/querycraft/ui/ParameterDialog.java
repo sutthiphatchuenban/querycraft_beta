@@ -65,7 +65,12 @@ public class ParameterDialog extends Dialog<Map<String, Object>> {
         content.setPadding(new Insets(20));
 
         // Show SQL preview
-        TextArea sqlPreview = new TextArea(sql);
+        String previewMsg = sql;
+        if (sql.length() > 500) {
+            previewMsg = sql.substring(0, 500) + "\n\n... [Query truncated for preview - " + sql.length() + " characters total]";
+        }
+        
+        TextArea sqlPreview = new TextArea(previewMsg);
         sqlPreview.setEditable(false);
         sqlPreview.setWrapText(true);
         sqlPreview.setPrefRowCount(3);

@@ -107,6 +107,9 @@ public class SidebarSection extends VBox implements querycraft.service.Connectio
     }
 
     public void addToHistory(String sql) {
+        if (sql == null || sql.trim().isEmpty() || sql.length() > 5000) {
+            return; // Ignore massive scripts to prevent UI freeze
+        }
         historyData.remove(sql);
         historyData.add(0, sql);
         if (historyData.size() > 50) historyData.remove(50);

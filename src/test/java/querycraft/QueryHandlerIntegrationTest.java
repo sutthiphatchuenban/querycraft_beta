@@ -6,7 +6,7 @@ import org.junit.Before;
 import org.junit.Test;
 import querycraft.model.QueryResult;
 import querycraft.service.handler.SelectHandler;
-import querycraft.service.handler.UpdateHandler;
+import querycraft.service.handler.DeleteHandler;
 import querycraft.service.handler.GenericHandler;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -63,8 +63,8 @@ public class QueryHandlerIntegrationTest {
     }
 
     @Test
-    public void testUpdateHandler() throws SQLException {
-        UpdateHandler handler = new UpdateHandler();
+    public void testDeleteHandler() throws SQLException {
+        DeleteHandler handler = new DeleteHandler();
         QueryResult result = handler.handle("UPDATE test_data SET name = 'Updated' WHERE id <= 10", conn, 1000);
         
         assertFalse(result.isSelectQuery());

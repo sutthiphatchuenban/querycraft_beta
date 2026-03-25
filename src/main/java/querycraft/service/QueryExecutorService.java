@@ -32,7 +32,7 @@ public class QueryExecutorService {
         
         // Initialize handlers (Strategy/Command pattern)
         handlers.add(new querycraft.service.handler.SelectHandler());
-        handlers.add(new querycraft.service.handler.UpdateHandler());
+        handlers.add(new querycraft.service.handler.DeleteHandler());
         handlers.add(new querycraft.service.handler.GenericHandler()); // Fallback
         
         logger.debug("QueryExecutorService initialized with {} handlers", handlers.size());
@@ -224,75 +224,10 @@ public class QueryExecutorService {
             }
         }
 
-        // Check for multiple statements (SQL injection via semicolon)
-        int semicolonCount = countUnquotedSemicolons(sql);
-        if (semicolonCount > 1) {
-            return new ValidationResult(false, 
-                "Multiple SQL statements are not allowed. Please execute one statement at a time.");
-        }
-
         return new ValidationResult(true, null);
     }
 
-    /**
-     * Count semicolons that are not inside quotes or comments.
-     */
-    private int countUnquotedSemicolons(String sql) {
-        int count = 0;
-        boolean inSingleQuote = false;
-        boolean inDoubleQuote = false;
-        boolean inLineComment = false;
-        boolean inBlockComment = false;
-        
-        for (int i = 0; i < sql.length(); i++) {
-            char c = sql.charAt(i);
-            char next = (i < sql.length() - 1) ? sql.charAt(i + 1) : '\0';
-            
-            // Handle line comment start
-            if (!inBlockComment && !inSingleQuote && !inDoubleQuote && c == '-' && next == '-') {
-                inLineComment = true;
-                i++;
-                continue;
-            }
-            
-            // Handle block comment start
-            if (!inLineComment && !inSingleQuote && !inDoubleQuote && c == '/' && next == '*') {
-                inBlockComment = true;
-                i++;
-                continue;
-            }
-            
-            // Handle block comment end
-            if (inBlockComment && c == '*' && next == '/') {
-                inBlockComment = false;
-                i++;
-                continue;
-            }
-            
-            // Handle line comment end
-            if (inLineComment && c == '\n') {
-                inLineComment = false;
-                continue;
-            }
-            
-            // Skip if in comment
-            if (inLineComment || inBlockComment) continue;
-            
-            // Handle quotes
-            if (c == '\'' && !inDoubleQuote) {
-                inSingleQuote = !inSingleQuote;
-            } else if (c == '"' && !inSingleQuote) {
-                inDoubleQuote = !inDoubleQuote;
-            }
-            
-            // Count semicolons outside quotes
-            if (c == ';' && !inSingleQuote && !inDoubleQuote) {
-                count++;
-            }
-        }
-        
-        return count;
-    }
+
 
     /**
      * Check if query is a DELETE statement.

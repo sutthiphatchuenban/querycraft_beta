@@ -189,6 +189,7 @@ public class DatabaseConnectionService {
                 config.addDataSourceProperty("cachePrepStmts", "true");
                 config.addDataSourceProperty("prepStmtCacheSize", "250");
                 config.addDataSourceProperty("prepStmtCacheSqlLimit", "2048");
+                config.addDataSourceProperty("allowMultiQueries", "true");
             }
             case POSTGRESQL -> {
                 config.addDataSourceProperty("socketTimeout", "30");

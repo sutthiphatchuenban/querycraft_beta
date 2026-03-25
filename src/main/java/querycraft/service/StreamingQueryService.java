@@ -267,8 +267,11 @@ public class StreamingQueryService {
     public long estimateRowCount(String sql) throws QueryCraftException {
         connectionService.validateConnection();
         
+        // Remove trailing semicolons to prevent syntax error in subquery
+        String cleanSql = sql.trim().replaceAll(";+$", "");
+        
         // Simple estimation - wrap in COUNT(*)
-        String countSql = "SELECT COUNT(*) FROM (" + sql + ") AS count_table";
+        String countSql = "SELECT COUNT(*) FROM (" + cleanSql + ") AS count_table";
         
         try (Connection conn = connectionService.getCurrentConnection();
              Statement stmt = conn.createStatement();

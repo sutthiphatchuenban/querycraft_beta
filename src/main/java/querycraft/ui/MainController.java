@@ -63,6 +63,10 @@ public class MainController extends BorderPane implements querycraft.service.Con
         updateConnectionStatus();
     }
 
+    private DialogManager getDialogManager() {
+        return new DialogManager(getScene().getWindow());
+    }
+
     private void loadSettings() {
         java.util.prefs.Preferences prefs = java.util.prefs.Preferences.userNodeForPackage(SettingsDialog.class);
         queryExecutor.setQueryTimeout(prefs.getInt("queryTimeout", 30));
@@ -100,7 +104,7 @@ public class MainController extends BorderPane implements querycraft.service.Con
                 message = e.getCause().getMessage();
             }
             
-            showError("Connection Failed", message);
+            getDialogManager().showError("Connection Failed", message);
             setStatus("Connection Error: " + message);
             
             // Re-enable connect button if it was disabled during attempt
@@ -140,7 +144,7 @@ public class MainController extends BorderPane implements querycraft.service.Con
                 } else {
                     querySection.setSqlText("SELECT * FROM " + tableName + " LIMIT 100");
                 }
-                executeQuery(false);
+                executeQuery();
             }
 
             @Override
@@ -162,8 +166,13 @@ public class MainController extends BorderPane implements querycraft.service.Con
         // Query Section Listeners
         querySection.setListener(new QueryEditorSection.QueryActionListener() {
             @Override
-            public void onExecuteRequested(boolean isDelete) {
-                executeQuery(isDelete);
+            public void onExecuteUnifiedRequested(String sql) {
+                executeUnified(sql);
+            }
+
+            @Override
+            public void onBatchProcessRequested(String selectSql, String deleteSql) {
+                executeBatchProcess(selectSql, deleteSql);
             }
 
             @Override
@@ -222,7 +231,11 @@ public class MainController extends BorderPane implements querycraft.service.Con
 
         this.addEventFilter(javafx.scene.input.KeyEvent.KEY_PRESSED, e -> {
             if (executeCombo.match(e)) {
-                executeQuery(false);
+                if (querySection.isBatchMode()) {
+                    executeBatchProcess(querySection.getSqlText(), querySection.getDeleteSqlText());
+                } else {
+                    executeUnified(querySection.getSqlText());
+                }
                 e.consume();
             } else if (formatCombo.match(e)) {
                 formatSql();
@@ -230,7 +243,11 @@ public class MainController extends BorderPane implements querycraft.service.Con
             } else if (e.isControlDown()) {
                 // Specialized fallback for ENTER
                 if (e.getCode() == javafx.scene.input.KeyCode.ENTER) {
-                    executeQuery(false);
+                    if (querySection.isBatchMode()) {
+                        executeBatchProcess(querySection.getSqlText(), querySection.getDeleteSqlText());
+                    } else {
+                        executeUnified(querySection.getSqlText());
+                    }
                     e.consume();
                 }
             }
@@ -238,24 +255,17 @@ public class MainController extends BorderPane implements querycraft.service.Con
     }
 
     private void showConnectionDialog() {
-        ConnectionDialog dialog = new ConnectionDialog();
-        dialog.initOwner(getScene().getWindow());
-        dialog.showAndWait().ifPresent(this::connect);
+        getDialogManager().showConnectionDialog().ifPresent(this::connect);
     }
 
     private void showHelpDialog() {
-        HelpDialog dialog = new HelpDialog();
-        dialog.initOwner(getScene().getWindow());
-        dialog.showAndWait();
+        getDialogManager().showHelpDialog();
     }
 
     private void showSettingsDialog() {
-        SettingsDialog dialog = new SettingsDialog(queryExecutor);
-        dialog.initOwner(getScene().getWindow());
-        dialog.showAndWait().ifPresent(saved -> {
+        getDialogManager().showSettingsDialog(queryExecutor).ifPresent(saved -> {
             if (saved) {
-                dialog.saveSettings();
-                setStatus("Settings saved (Timeout: " + dialog.getQueryTimeout() + "s)");
+                setStatus("Settings saved (Timeout: " + queryExecutor.getQueryTimeout() + "s)");
             }
         });
     }
@@ -319,17 +329,161 @@ public class MainController extends BorderPane implements querycraft.service.Con
         }
     }
 
-    private void executeQuery(boolean isDelete) {
+    private void executeUnified(String sql) {
+        if (sql == null || sql.trim().isEmpty()) return;
+        
+        executeQuery();
+    }
+
+    private void executeBatchProcess(String selectSql, String deleteSql) {
+        if (selectSql.isEmpty() || deleteSql.isEmpty()) {
+            getDialogManager().showError("Input Required", "Both SELECT and DELETE queries are required for batch processing.");
+            return;
+        }
+
+        if (!getDialogManager().confirmBatchProcess()) return;
+
+        setStatus("Phase 1: Estimating row count...");
+        resultSection.setLoading(true);
+
+        new Thread(() -> {
+            try {
+                long estimatedRows = streamingQueryService.estimateRowCount(selectSql);
+                if (estimatedRows == 0) {
+                    Platform.runLater(() -> {
+                        getDialogManager().showError("Batch Aborted", "No records found to archive.");
+                        resultSection.setLoading(false);
+                        setStatus("Batch aborted: No data found");
+                    });
+                    return;
+                }
+
+                Platform.runLater(() -> {
+                    setStatus("Phase 2: Awaiting Export Configuration (" + estimatedRows + " rows estimated)...");
+                    
+                    getDialogManager().promptExportConfig().ifPresentOrElse(config -> {
+                        querycraft.model.DatabaseType currentDbType = connectionService.getCurrentConnectionInfo().getDatabaseType();
+                        
+                        // If CSV database, skip SQL generation (quirk fix)
+                        if (currentDbType == querycraft.model.DatabaseType.CSV) {
+                            proceedWithBatchExportAndCleanup(config, null, null, currentDbType, selectSql, deleteSql, estimatedRows);
+                            return;
+                        }
+
+                        getDialogManager().promptTargetTableName("archived_records").ifPresentOrElse(tableName -> {
+                            if (tableName.trim().isEmpty()) {
+                                resultSection.setLoading(false);
+                                setStatus("Batch aborted logic: Empty table name.");
+                                return;
+                            }
+                            
+                            java.io.File initialDir = config.getFile().getParentFile();
+                            getDialogManager().promptSqlFileSave(tableName.trim() + ".sql", initialDir).ifPresentOrElse(sqlFile -> {
+                                proceedWithBatchExportAndCleanup(config, sqlFile, tableName.trim(), currentDbType, selectSql, deleteSql, estimatedRows);
+                            }, () -> {
+                                resultSection.setLoading(false);
+                                setStatus("Batch aborted by user at SQL file selection.");
+                            });
+                        }, () -> {
+                            resultSection.setLoading(false);
+                            setStatus("Batch aborted by user at SQL table name input.");
+                        });
+                    }, () -> {
+                        resultSection.setLoading(false);
+                        setStatus("Batch aborted by user at export phase.");
+                    });
+                });
+            } catch (Exception e) {
+                Platform.runLater(() -> {
+                    resultSection.setLoading(false);
+                    getDialogManager().showError("Batch Estimation Error", "Failed to estimate rows: " + e.getMessage());
+                    setStatus("Batch failed at pre-flight check.");
+                });
+            }
+        }).start();
+    }
+
+    private void proceedWithBatchExportAndCleanup(
+            querycraft.ui.ExportConfig config, 
+            java.io.File sqlFile, 
+            String tableName, 
+            querycraft.model.DatabaseType currentDbType, 
+            String selectSql, 
+            String deleteSql,
+            long estimatedRows) {
+
+        setStatus("Phase 2: Exporting streaming records...");
+        resultSection.setLoading(true);
+
+        querycraft.util.CompositeStreamingExporter composite = new querycraft.util.CompositeStreamingExporter();
+        composite.addExporter(new querycraft.util.CsvStreamingExporter(config.getFile(), config.getOptions()));
+        
+        if (sqlFile != null && tableName != null) {
+            composite.addExporter(new querycraft.util.SqlStreamingExporter(sqlFile, tableName, currentDbType));
+        }
+
+        streamingQueryService.streamExportToFile(selectSql, composite, new querycraft.service.StreamingQueryService.StreamCallback() {
+            @Override
+            public void onComplete(long totalRows, long durationMs) {
+                Platform.runLater(() -> setStatus("Phase 3: Cleanup (Executing DELETE)..."));
+                
+                // Phase 3: DELETE
+                queryExecutor.executeQueryAsync(deleteSql, new QueryExecutorService.QueryCallback() {
+                    @Override
+                    public void onSuccess(QueryResult deleteResult) {
+                        Platform.runLater(() -> {
+                            resultSection.setLoading(false);
+                            setStatus("Batch Success: " + totalRows + " archived, " + deleteResult.getAffectedRows() + " deleted.");
+                            
+                            String fileInfo = "- " + config.getFile().getAbsolutePath();
+                            if (sqlFile != null) {
+                                fileInfo += "\n- " + sqlFile.getAbsolutePath();
+                            }
+                            
+                            String content = "Data archived to:\n" + fileInfo + 
+                                             "\n\nRecords deleted: " + deleteResult.getAffectedRows() + "\nExport time: " + durationMs + "ms";
+                            getDialogManager().showInfo("Batch Process Complete", "Success!", content);
+                            
+                            // Refresh tables/sidebar if needed
+                            fetchTables(); 
+                        });
+                    }
+
+                    @Override
+                    public void onError(Exception e) {
+                        Platform.runLater(() -> {
+                            resultSection.setLoading(false);
+                            getDialogManager().showError("Batch Cleanup Error", "Data was exported, but DELETE failed: " + e.getMessage());
+                            setStatus("Batch partial success: Exported but not deleted.");
+                        });
+                    }
+                });
+            }
+
+            @Override
+            public void onError(querycraft.exception.QueryCraftException e) {
+                Platform.runLater(() -> {
+                    resultSection.setLoading(false);
+                    getDialogManager().showError("Stream Export Error", "Failed to export data: " + e.getMessage());
+                    setStatus("Batch failed at export phase.");
+                });
+            }
+        });
+    }
+
+    private void executeQuery() {
         String sql = querySection.getSqlText();
         if (sql == null || sql.trim().isEmpty()) return;
 
-        if (resultSection.isStreamingModeEnabled() && !isDelete && queryExecutor.isSelectQuery(sql)) {
+        boolean isSelect = queryExecutor.isSelectQuery(sql);
+
+        if (resultSection.isStreamingModeEnabled() && isSelect) {
             executeStreamingQuery(sql);
             return;
         }
 
-        // Check for named parameters (:paramName)
-        if (sql.contains(":") && !isDelete) {
+        // Check for named parameters (:paramName), but skip if query is massive to prevent freezes
+        if (sql.length() < 10000 && sql.contains(":") && !queryExecutor.isDeleteQuery(sql)) {
             ParameterDialog paramDialog = new ParameterDialog(sql);
             if (paramDialog.hasParameters()) {
                 paramDialog.initOwner(getScene().getWindow());
@@ -346,26 +500,15 @@ public class MainController extends BorderPane implements querycraft.service.Con
         
         // Safety check for query type vs action
         boolean queryIsDelete = queryExecutor.isDeleteQuery(sql);
-        if (!isDelete && queryIsDelete) {
-            Alert alert = new Alert(Alert.AlertType.CONFIRMATION,
-                "This query appears to be a DELETE statement. Are you sure you want to execute it as a SELECT?",
-                ButtonType.YES, ButtonType.NO);
-            if (alert.showAndWait().orElse(ButtonType.NO) != ButtonType.YES) return;
-        }
-
-        if (isDelete && !queryIsDelete) {
-            Alert alert = new Alert(Alert.AlertType.CONFIRMATION,
-                "The query doesn't appear to be a DELETE statement. Execute anyway?",
-                ButtonType.YES, ButtonType.NO);
-            if (alert.showAndWait().orElse(ButtonType.NO) != ButtonType.YES) return;
-        }
 
         // Warning for all DELETE operations
-        if (isDelete || queryIsDelete) {
-            Alert alert = new Alert(Alert.AlertType.CONFIRMATION,
-                "Warning: This operation will modify data in the database. Proceed?",
-                ButtonType.YES, ButtonType.NO);
-            if (alert.showAndWait().orElse(ButtonType.NO) != ButtonType.YES) return;
+        if (queryIsDelete) {
+            String msg = "Warning: This operation is a DELETE statement and will permanently modify data. Proceed?";
+            if (!getDialogManager().confirmAction("Confirm Deletion", msg)) return;
+        } else if (!isSelect) {
+            // Warning for INSERT/UPDATE
+            String msg = "Warning: This operation will modify data in the database. Proceed?";
+            if (!getDialogManager().confirmAction("Confirm Modification", msg)) return;
         }
 
         setStatus("Executing...");
@@ -396,7 +539,7 @@ public class MainController extends BorderPane implements querycraft.service.Con
                                 default -> errorTitle = "Query Error";
                             }
                         }
-                        showError(errorTitle, e.getMessage());
+                        getDialogManager().showError(errorTitle, e.getMessage());
                         setStatus("Error: " + errorTitle);
                         resultSection.setLoading(false);
                     }
@@ -423,7 +566,7 @@ public class MainController extends BorderPane implements querycraft.service.Con
             } catch (querycraft.exception.QueryCraftException e) {
                 javafx.application.Platform.runLater(() -> {
                     if (sessionId == currentQuerySession) {
-                        showError("Query Error", e.getMessage());
+                        getDialogManager().showError("Query Error", e.getMessage());
                         setStatus("Error: " + e.getErrorCode());
                         resultSection.setLoading(false);
                     }
@@ -485,7 +628,7 @@ public class MainController extends BorderPane implements querycraft.service.Con
                 public void onError(querycraft.exception.QueryCraftException e) {
                     javafx.application.Platform.runLater(() -> {
                         if (sessionId == currentQuerySession) {
-                            showError("Streaming Query Error", e.getMessage());
+                            getDialogManager().showError("Streaming Query Error", e.getMessage());
                             setStatus("Streaming error");
                             resultSection.failStreaming(e.getMessage());
                         }
@@ -529,7 +672,7 @@ public class MainController extends BorderPane implements querycraft.service.Con
             public void onSuccess(QueryResult result) {
                 Platform.runLater(() -> resultSection.displayResult(result));
             }
-            @Override public void onError(Exception e) { showError("Describe Failed", e.getMessage()); }
+            @Override public void onError(Exception e) { getDialogManager().showError("Describe Failed", e.getMessage()); }
         });
     }
 
@@ -564,15 +707,5 @@ public class MainController extends BorderPane implements querycraft.service.Con
 
     private void setStatus(String message) {
         Platform.runLater(() -> statusLabel.setText(message));
-    }
-
-    private void showError(String title, String message) {
-        Platform.runLater(() -> {
-            Alert alert = new Alert(Alert.AlertType.ERROR);
-            alert.setTitle(title);
-            alert.setHeaderText(null);
-            alert.setContentText(message);
-            alert.showAndWait();
-        });
     }
 }

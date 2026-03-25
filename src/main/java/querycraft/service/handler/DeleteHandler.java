@@ -6,7 +6,7 @@ import java.sql.*;
 /**
  * Handle INSERT/UPDATE/DELETE queries that return affected row counts.
  */
-public class UpdateHandler extends BaseHandler {
+public class DeleteHandler extends BaseHandler {
     
     @Override
     public boolean canHandle(String sql) {

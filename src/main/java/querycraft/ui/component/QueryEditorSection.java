@@ -147,6 +147,11 @@ public class QueryEditorSection extends VBox {
         processBatchButton.setDisable(!enabled);
     }
 
+    public void clearAll() {
+        queryEditor.clear();
+        deleteQueryEditor.clear();
+    }
+
     public SqlEditor getEditor() {
         return queryEditor;
     }

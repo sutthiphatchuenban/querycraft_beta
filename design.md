@@ -8,13 +8,25 @@ QueryCraft is a Java-based desktop application for database querying with suppor
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                      UI Layer (JavaFX)                       │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐  │
-│  │ Connection  │  │ Query Panel │  │ Result/Export Panel │  │
-│  │   Manager   │  │             │  │                     │  │
-│  └─────────────┘  └─────────────┘  └─────────────────────┘  │
+│  ┌────────────────┐  ┌──────────────┐  ┌──────────────────┐  │
+│  │ SidebarSection │  │ ResultTable  │  │ QueryEditor      │  │
+│  └────────────────┘  └──────────────┘  └──────────────────┘  │
 └─────────────────────────────────────────────────────────────┘
-                              │
+                               │
 ┌─────────────────────────────────────────────────────────────┐
+│                    Controller Layer                          │
+│  ┌──────────────────────┐    ┌──────────────────────────┐    │
+│  │ MainController       │    │ QueryExecutionController │    │
+│  └──────────────────────┘    └──────────────────────────┘    │
+└─────────────────────────────────────────────────────────────┘
+                               │
+┌──────────────────┬───────────┴───────────┬──────────────────┐
+│  connection/     │       query/          │     export/      │
+│  ┌────────────┐  │  ┌─────────────────┐  │  ┌────────────┐  │
+│  │ DB Service  │  │  │ Streaming/Batch │  │  │ Exporters  │  │
+│  └────────────┘  │  └─────────────────┘  │  └────────────┘  │
+└──────────────────┴───────────────────────┴──────────────────┘
+�──────────────────────────────────────────────────────────┐
 │                    Service Layer                             │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐  │
 │  │   Database  │  │   Query     │  │    Export Service   │  │
@@ -97,34 +109,39 @@ QueryCraft is a Java-based desktop application for database querying with suppor
   - Optional table name specification
   - Transaction wrapper option
 
-## Project Structure
+## Project Structure (Refactored v1.1)
 
 ```
 src/main/java/querycraft/
-├── QueryCraftApp.java              # JavaFX Application entry point
-├── config/
-│   └── DatabaseConfig.java         # Database configuration model
-├── model/
-│   ├── ConnectionInfo.java         # Connection parameters
-│   ├── QueryResult.java            # Query result wrapper
-│   ├── ColumnInfo.java             # Column metadata
-│   └── ExportOptions.java          # Export configuration
-├── service/
+├── QueryCraftApp.java             # Entry point
+├── connection/                    # Connection Logic
 │   ├── DatabaseConnectionService.java
+│   └── PooledConnectionManager.java
+├── query/                         # Query Execution Logic
 │   ├── QueryExecutorService.java
-│   └── ExportService.java
-├── dao/
-│   └── DatabaseAccessObject.java   # JDBC operations
+│   └── StreamingQueryService.java
+├── export/                        # Data Exporting
+│   ├── DataExporter.java
+│   └── ExporterFactory.java
 ├── ui/
-│   ├── MainController.java
-│   ├── ConnectionDialog.java
-│   ├── QueryPanel.java
-│   ├── ResultTableView.java
-│   └── ExportDialog.java
-└── util/
-    ├── CsvExporter.java
-    └── SqlInsertGenerator.java
+│   ├── controller/                # App Flow Controllers
+│   │   ├── MainController.java
+│   │   └── QueryExecutionController.java
+│   ├── dialog/                    # Specialized Dialogs
+│   │   ├── ConnectionDialog.java
+│   │   └── ExportDialog.java
+│   └── component/                 # Reusable UI widgets
+│       ├── SidebarSection.java
+│       └── ResultTableSection.java
+└── util/                          # Validation & Shared Helpers
 ```
+
+### 6. Batch Action Mode (New)
+- **Goal:** Automate the "Select -> Export -> Cleanup" workflow.
+- **Components:**
+  - Dual Editor UI
+  - Sequential execution logic
+  - Data integrity fallback (Archive before delete)
 
 ## Dependencies (pom.xml)
 

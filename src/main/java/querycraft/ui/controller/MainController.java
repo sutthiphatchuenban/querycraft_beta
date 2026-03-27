@@ -218,7 +218,7 @@ public class MainController extends BorderPane {
         statusLabel.getStyleClass().add("status-label");
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
-        Label appLabel = new Label("QueryCraft v1.0.0");
+        Label appLabel = new Label("QueryCraft v1.1.0-SNAPSHOT");
         appLabel.getStyleClass().add("status-label");
         bar.getChildren().addAll(statusLabel, spacer, appLabel);
         return bar;

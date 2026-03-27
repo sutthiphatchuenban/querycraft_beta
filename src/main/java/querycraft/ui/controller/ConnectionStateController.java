@@ -75,6 +75,7 @@ public class ConnectionStateController implements ConnectionObserver {
     public void onDisconnected() {
         Platform.runLater(() -> {
             updateConnectionStatus();
+            querySection.clearAll();
             resultSection.displayResult(null);
             statusReporter.setStatus("Disconnected");
         });
@@ -89,6 +90,7 @@ public class ConnectionStateController implements ConnectionObserver {
             }
             dialogManager.showError("Connection Failed", message);
             statusReporter.setStatus("Connection Error: " + message);
+            querySection.clearAll();
             updateConnectionStatus();
         });
     }

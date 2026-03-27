@@ -22,7 +22,7 @@ public class QueryCraftApp extends Application {
 
     private static final Logger logger = LoggerFactory.getLogger(QueryCraftApp.class);
     private static final String APP_TITLE = "QueryCraft - Database Query Tool";
-    private static final String APP_VERSION = "1.0.0";
+    private static final String APP_VERSION = "1.1.0-SNAPSHOT";
 
     @Override
     public void start(Stage primaryStage) {

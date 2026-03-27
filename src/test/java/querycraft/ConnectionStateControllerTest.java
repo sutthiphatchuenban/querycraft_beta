@@ -69,7 +69,7 @@ public class ConnectionStateControllerTest {
         DatabaseConnectionService.getInstance().connect(info);
 
         CountDownLatch latch = new CountDownLatch(1);
-        StubSidebarSection sidebar = new StubSidebarSection(latch);
+        StubSidebarSection sidebar = new StubSidebarSection();
         StubQueryEditorSection editorSection = new StubQueryEditorSection();
         AtomicReference<String> status = new AtomicReference<>();
 
@@ -84,7 +84,10 @@ public class ConnectionStateControllerTest {
                     new Label(),
                     new Button(),
                     new Button(),
-                    status::set
+                    msg -> {
+                        status.set(msg);
+                        latch.countDown();
+                    }
             );
             controller.fetchTablesForCsv();
         });
@@ -120,17 +123,15 @@ public class ConnectionStateControllerTest {
     }
 
     private static class StubSidebarSection extends SidebarSection {
-        private final CountDownLatch latch;
         int tableCount;
 
-        StubSidebarSection(CountDownLatch latch) {
-            this.latch = latch;
+        StubSidebarSection() {
+            super();
         }
 
         @Override
         public void setTables(javafx.collections.ObservableList<querycraft.model.DbTable> tables) {
             this.tableCount = tables.size();
-            latch.countDown();
         }
     }
 

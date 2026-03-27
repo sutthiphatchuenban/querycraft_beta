@@ -62,7 +62,7 @@ public class QueryExecutionControllerTest {
         AtomicReference<String> status = new AtomicReference<>();
         CountDownLatch latch = new CountDownLatch(1);
         StubSidebarSection sidebar = new StubSidebarSection();
-        StubResultTableSection resultSection = new StubResultTableSection(latch);
+        StubResultTableSection resultSection = new StubResultTableSection();
 
         JavaFxTestBootstrap.runOnFxThreadAndWait(() -> {
             QueryExecutionController controller = new QueryExecutionController(
@@ -74,7 +74,12 @@ public class QueryExecutionControllerTest {
                     resultSection,
                     new StubDialogManager(),
                     new AtomicLong(),
-                    status::set
+                    msg -> {
+                        status.set(msg);
+                        if (msg.startsWith("Done") || msg.startsWith("Streaming done") || msg.contains("Error")) {
+                            latch.countDown();
+                        }
+                    }
             );
             controller.executeQuery();
         });
@@ -89,7 +94,7 @@ public class QueryExecutionControllerTest {
     public void testExecuteStreamingQueryFinishesStreaming() throws Exception {
         AtomicReference<String> status = new AtomicReference<>();
         CountDownLatch latch = new CountDownLatch(1);
-        StubResultTableSection resultSection = new StubResultTableSection(latch);
+        StubResultTableSection resultSection = new StubResultTableSection();
 
         JavaFxTestBootstrap.runOnFxThreadAndWait(() -> {
             QueryExecutionController controller = new QueryExecutionController(
@@ -101,7 +106,12 @@ public class QueryExecutionControllerTest {
                     resultSection,
                     new StubDialogManager(),
                     new AtomicLong(),
-                    status::set
+                    msg -> {
+                        status.set(msg);
+                        if (msg.startsWith("Done") || msg.startsWith("Streaming done") || msg.contains("Error")) {
+                            latch.countDown();
+                        }
+                    }
             );
             controller.executeStreamingQuery("SELECT * FROM users");
         });
@@ -145,18 +155,15 @@ public class QueryExecutionControllerTest {
     }
 
     private static class StubResultTableSection extends ResultTableSection {
-        private final CountDownLatch latch;
         QueryResult lastResult;
         final List<Object[]> streamingRows = new ArrayList<>();
 
-        StubResultTableSection(CountDownLatch latch) {
-            this.latch = latch;
+        StubResultTableSection() {
         }
 
         @Override
         public void displayResult(QueryResult result) {
             this.lastResult = result;
-            latch.countDown();
         }
 
         @Override
@@ -170,7 +177,6 @@ public class QueryExecutionControllerTest {
 
         @Override
         public void finishStreaming(long durationMs, long totalRows) {
-            latch.countDown();
         }
     }
 

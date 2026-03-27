@@ -1,4 +1,4 @@
-# <img src="src/main/resources/images/logo.png" width="80" height="80" align="center"> QueryCraft v1.0.0
+# <img src="src/main/resources/images/logo.png" width="80" height="80" align="center"> QueryCraft v1.1.0 (Refactored)
 
 QueryCraft is a high-performance, JavaFX-based desktop application designed for database querying, data exploration, and export. It provides a robust interface for interacting with multiple database engines, supporting large dataset handling through advanced features like dynamic row limiting and streaming mode.
 
@@ -6,14 +6,15 @@ QueryCraft is a high-performance, JavaFX-based desktop application designed for 
 
 ### 🔌 Database & Data Support
 - **Multi-Engine Support**: Seamlessly connect to **MySQL**, **PostgreSQL**, and **Microsoft SQL Server**.
-- **CSV Folder Connection**: Treat a directory of `.csv` files as a virtual database. Query files as tables using standard SQL syntax (powered by H2).
-- **Secure Connection**: Robust connection management with real-time error reporting (e.g., Access Denied, Host Unreachable).
+- **Windows Authentication & Named Pipes**: Full support for SQL Server enterprise connection methods.
+- **CSV Folder Connection**: Treat a directory of `.csv` files as a virtual database. Query files as tables using standard SQL syntax.
+- **Enhanced "Remember Connection"**: Persist up to 20 recent connections with password obfuscation and specific instance settings.
 
 ### 📊 Advanced Data Handling
-- **Standard Mode**: Fast result preview for datasets up to **50,000 rows**.
-- **Streaming Mode**: Specialized mode for massive datasets (100,000 to 1,000,000+ rows). Ensures stability and prevents $OOM$ (Out of Memory) errors by processing rows in batches.
-- **Dynamic Row Limiting**: User-configurable row caps (configurable via Settings) to balance performance and memory usage.
-- **Truncation Warning**: Explicit visual indicator in the UI when query results are capped by the configured limit.
+- **Batch Action Mode**: Unified workflow for **SELECT + EXPORT + DELETE**. Perfect for archiving old data or moving bulk records between systems.
+- **Streaming Mode**: Specialized mode for massive datasets (100,000 to 1,000,000 rows). Ensures stability and prevents OOM errors.
+- **Dynamic Row Limiting**: User-configurable row caps to balance performance.
+- **Persistent Export Paths**: Remembers your last used export directory across sessions.
 
 ### 🛡️ Security & Validation
 - **SQL Validator**: Built-in protection that blocks destructive commands like `DROP` and `TRUNCATE` to prevent accidental data loss.
@@ -31,13 +32,11 @@ QueryCraft is a high-performance, JavaFX-based desktop application designed for 
   - Supports transaction wrappers and proper value escaping for various dialects.
 - **SQL Formatter**: One-click SQL beautification for complex queries.
 
-## 🏗️ Technical Architecture
-
 QueryCraft follows a clean, modular architecture inspired by modern design patterns:
+- **Service-Oriented Design**: Business logic is separated into specialized packages (`query`, `connection`, `export`).
+- **Stateful Controllers**: UI logic is managed by controllers that handle specific app states (e.g. `ConnectionStateController`).
 - **Strategy Pattern (Dialects)**: Abstracted database logic allowing easy addition of new SQL dialects.
-- **Command/Handler Pattern**: Specialized execution logic for SELECT, UPDATE, and Generic commands.
 - **Observer Pattern**: Decoupled UI and Service layers for real-time status updates and event handling.
-- **Factory Pattern**: Centralized creation of exporters and data generators.
 
 ## ⚙️ Requirements
 - **Java**: JDK 17 or higher.

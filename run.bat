@@ -141,13 +141,16 @@ echo Compiling Java modules...
 javac -encoding UTF-8 --module-path "%MODULE_PATH%" -d target\classes ^
     src\main\java\module-info.java ^
     src\main\java\querycraft\*.java ^
+    src\main\java\querycraft\connection\*.java ^
     src\main\java\querycraft\dialect\*.java ^
+    src\main\java\querycraft\exception\*.java ^
+    src\main\java\querycraft\export\*.java ^
     src\main\java\querycraft\model\*.java ^
-    src\main\java\querycraft\service\*.java ^
-    src\main\java\querycraft\util\*.java ^
-    src\main\java\querycraft\ui\*.java ^
+    src\main\java\querycraft\query\*.java ^
+    src\main\java\querycraft\ui\controller\*.java ^
+    src\main\java\querycraft\ui\dialog\*.java ^
     src\main\java\querycraft\ui\component\*.java ^
-    src\main\java\querycraft\exception\*.java
+    src\main\java\querycraft\util\*.java
 
 if errorlevel 1 goto compile_error
 

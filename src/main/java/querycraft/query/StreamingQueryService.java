@@ -87,7 +87,12 @@ public class StreamingQueryService {
                 );
 
                 // Set fetch size for MySQL streaming
-                stmt.setFetchSize(fetchSize > 0 ? fetchSize : Integer.MIN_VALUE);
+                String dbName = conn.getMetaData().getDatabaseProductName().toLowerCase();
+                if (dbName.contains("mysql")) {
+                    stmt.setFetchSize(Integer.MIN_VALUE);
+                } else if (fetchSize > 0) {
+                    stmt.setFetchSize(fetchSize);
+                }
                 stmt.setQueryTimeout(DEFAULT_TIMEOUT_SECONDS);
 
                 logger.debug("Executing streaming query: {}", sql.substring(0, Math.min(100, sql.length())));

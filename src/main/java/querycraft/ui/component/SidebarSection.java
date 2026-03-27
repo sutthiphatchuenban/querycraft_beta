@@ -128,11 +128,17 @@ public class SidebarSection extends VBox implements ConnectionObserver {
 
     @Override
     public void onDisconnected() {
-        javafx.application.Platform.runLater(() -> tableData.clear());
+        javafx.application.Platform.runLater(() -> {
+            tableData.clear();
+            historyData.clear();
+        });
     }
 
     @Override
     public void onConnectionFailed(Exception e) {
-        javafx.application.Platform.runLater(() -> tableData.clear());
+        javafx.application.Platform.runLater(() -> {
+            tableData.clear();
+            historyData.clear();
+        });
     }
 }

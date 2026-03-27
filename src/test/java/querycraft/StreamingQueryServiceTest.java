@@ -6,8 +6,8 @@ import org.junit.Test;
 import querycraft.exception.QueryCraftException;
 import querycraft.model.ColumnInfo;
 import querycraft.model.CsvConnectionInfo;
-import querycraft.service.DatabaseConnectionService;
-import querycraft.service.StreamingQueryService;
+import querycraft.connection.DatabaseConnectionService;
+import querycraft.query.StreamingQueryService;
 
 import java.io.File;
 import java.io.FileWriter;

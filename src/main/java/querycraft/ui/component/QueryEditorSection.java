@@ -4,7 +4,6 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
-import querycraft.ui.SqlEditor;
 
 /**
  * Component for the SQL editor and execution buttons.

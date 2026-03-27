@@ -10,11 +10,11 @@ import javafx.scene.layout.*;
 import javafx.scene.input.*;
 import javafx.stage.FileChooser;
 import querycraft.model.*;
-import querycraft.ui.ExportConfig;
-import querycraft.ui.ExportDialog;
-import querycraft.util.DataExporter;
-import querycraft.util.ExporterFactory;
-import querycraft.service.DatabaseConnectionService;
+import querycraft.ui.dialog.ExportConfig;
+import querycraft.ui.dialog.ExportDialog;
+import querycraft.export.DataExporter;
+import querycraft.export.ExporterFactory;
+import querycraft.connection.DatabaseConnectionService;
 
 import java.io.File;
 

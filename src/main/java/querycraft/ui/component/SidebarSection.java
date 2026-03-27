@@ -6,11 +6,13 @@ import javafx.geometry.Insets;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import querycraft.model.DbTable;
+import querycraft.connection.ConnectionObserver;
+import querycraft.connection.DatabaseConnectionService;
 
 /**
  * Component for the sidebar that displays tables and query history, using OOP observer pattern.
  */
-public class SidebarSection extends VBox implements querycraft.service.ConnectionObserver {
+public class SidebarSection extends VBox implements ConnectionObserver {
 
 
     private final ListView<DbTable> tableListView;
@@ -34,7 +36,7 @@ public class SidebarSection extends VBox implements querycraft.service.Connectio
         this.setPrefWidth(220);
 
         // Register as observer
-        querycraft.service.DatabaseConnectionService.getInstance().addObserver(this);
+        DatabaseConnectionService.getInstance().addObserver(this);
 
         // Tables Section
         Label tablesLabel = new Label("Tables");

@@ -2,20 +2,22 @@ package querycraft;
 
 import static org.junit.Assert.*;
 import org.junit.Test;
-import querycraft.service.QueryExecutorService;
-import querycraft.util.CsvExporter;
+import querycraft.query.QueryExecutorService;
+import querycraft.export.CsvExporter;
 import querycraft.model.DatabaseType;
 
 public class AppTest {
     
     private final QueryExecutorService executor = new QueryExecutorService();
 
+    @SuppressWarnings("deprecation")
     @Test
     public void testQueryValidationSafe() {
         assertTrue(executor.validateQuery("SELECT * FROM users").isValid());
         assertTrue(executor.validateQuery("SELECT (SELECT 1) as test").isValid());
     }
 
+    @SuppressWarnings("deprecation")
     @Test
     public void testQueryValidationDangerous() {
         // Direct drop

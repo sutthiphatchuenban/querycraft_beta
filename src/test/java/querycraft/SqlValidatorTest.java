@@ -3,7 +3,7 @@ package querycraft;
 import static org.junit.Assert.*;
 import org.junit.Before;
 import org.junit.Test;
-import querycraft.service.QueryExecutorService;
+import querycraft.query.QueryExecutorService;
 
 public class SqlValidatorTest {
 
@@ -14,6 +14,7 @@ public class SqlValidatorTest {
         executor = new QueryExecutorService();
     }
 
+    @SuppressWarnings("deprecation")
     @Test
     public void testValidQueries() {
         assertTrue(executor.validateQuery("SELECT * FROM students").isValid());
@@ -24,6 +25,7 @@ public class SqlValidatorTest {
         assertTrue(executor.validateQuery("DESCRIBE students").isValid());
     }
 
+    @SuppressWarnings("deprecation")
     @Test
     public void testDangerousDrop() {
         QueryExecutorService.ValidationResult result = executor.validateQuery("DROP TABLE students");
@@ -31,6 +33,7 @@ public class SqlValidatorTest {
         assertTrue(result.getMessage().contains("Potentially dangerous SQL pattern detected"));
     }
 
+    @SuppressWarnings("deprecation")
     @Test
     public void testDangerousTruncate() {
         QueryExecutorService.ValidationResult result = executor.validateQuery("TRUNCATE TABLE logs");
@@ -38,6 +41,7 @@ public class SqlValidatorTest {
         assertTrue(result.getMessage().contains("Potentially dangerous SQL pattern detected"));
     }
 
+    @SuppressWarnings("deprecation")
     @Test
     public void testCommentBypassAttempts() {
         // Obfuscated DROP
@@ -46,12 +50,14 @@ public class SqlValidatorTest {
         assertFalse(executor.validateQuery("-- leading comment\nDROP TABLE x").isValid());
     }
 
+    @SuppressWarnings("deprecation")
     @Test
     public void testCaseInsensitivity() {
         assertFalse(executor.validateQuery("drop table students").isValid());
         assertFalse(executor.validateQuery("TrUnCaTe TaBlE logs").isValid());
     }
 
+    @SuppressWarnings("deprecation")
     @Test
     public void testEmptyAndNull() {
         assertFalse(executor.validateQuery("").isValid());

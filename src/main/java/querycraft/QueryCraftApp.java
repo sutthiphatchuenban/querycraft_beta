@@ -13,7 +13,7 @@ import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import querycraft.ui.MainController;
+import querycraft.ui.controller.MainController;
 
 /**
  * Main entry point for the QueryCraft application with Splash Screen.
@@ -178,8 +178,8 @@ public class QueryCraftApp extends Application {
         // Cleanup when application closes
         logger.info("Shutting down QueryCraft...");
         try {
-            querycraft.service.DatabaseConnectionService.getInstance().disconnect();
-            querycraft.service.QueryExecutorService.shutdown();
+            querycraft.connection.DatabaseConnectionService.getInstance().disconnect();
+            querycraft.query.QueryExecutorService.shutdown();
             logger.info("QueryCraft shutdown complete");
         } catch (Exception e) {
             logger.error("Error during shutdown", e);

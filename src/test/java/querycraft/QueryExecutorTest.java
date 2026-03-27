@@ -5,7 +5,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import querycraft.model.QueryResult;
-import querycraft.service.QueryExecutor;
+import querycraft.query.QueryExecutor;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;

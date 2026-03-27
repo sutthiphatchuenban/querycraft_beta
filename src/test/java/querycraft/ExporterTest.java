@@ -2,8 +2,8 @@ package querycraft;
 
 import static org.junit.Assert.*;
 import org.junit.Test;
-import querycraft.util.ExporterFactory;
-import querycraft.util.CsvExporter;
+import querycraft.export.ExporterFactory;
+import querycraft.export.CsvExporter;
 import querycraft.model.ExportOptions;
 import querycraft.model.DatabaseType;
 

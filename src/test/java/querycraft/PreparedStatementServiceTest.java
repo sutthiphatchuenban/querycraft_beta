@@ -1,7 +1,7 @@
 package querycraft;
 
 import org.junit.Test;
-import querycraft.service.PreparedStatementService;
+import querycraft.query.PreparedStatementService;
 
 import java.util.List;
 

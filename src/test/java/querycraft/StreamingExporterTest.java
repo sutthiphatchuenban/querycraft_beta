@@ -4,9 +4,9 @@ import org.junit.Test;
 import querycraft.model.ColumnInfo;
 import querycraft.model.DatabaseType;
 import querycraft.model.ExportOptions;
-import querycraft.util.CompositeStreamingExporter;
-import querycraft.util.CsvStreamingExporter;
-import querycraft.util.SqlStreamingExporter;
+import querycraft.export.CompositeStreamingExporter;
+import querycraft.export.CsvStreamingExporter;
+import querycraft.export.SqlStreamingExporter;
 
 import java.io.File;
 import java.nio.file.Files;

@@ -1,6 +1,6 @@
 @SuppressWarnings("module")
 module querycraft {
-    requires javafx.controls;
+    requires transitive javafx.controls;
     requires javafx.fxml;
     requires transitive javafx.graphics;
     requires java.base;
@@ -30,14 +30,15 @@ module querycraft {
 
     // Open packages for reflection by JavaFX
     opens querycraft to javafx.graphics, javafx.fxml;
-    opens querycraft.ui to javafx.fxml;
-    opens querycraft.ui.component to javafx.fxml;
 
     // Export packages for visibility
     exports querycraft;
     exports querycraft.model;
-    exports querycraft.service;
-    exports querycraft.ui;
+    exports querycraft.connection;
+    exports querycraft.query;
+    exports querycraft.export;
+    exports querycraft.ui.controller;
+    exports querycraft.ui.dialog;
     exports querycraft.ui.component;
     exports querycraft.util;
     exports querycraft.exception;

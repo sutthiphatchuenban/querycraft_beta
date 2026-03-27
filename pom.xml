@@ -26,6 +26,12 @@
       <version>4.13.2</version>
       <scope>test</scope>
     </dependency>
+    <dependency>
+      <groupId>org.testfx</groupId>
+      <artifactId>testfx-junit</artifactId>
+      <version>4.0.18</version>
+      <scope>test</scope>
+    </dependency>
 
     <!-- JavaFX Controls -->
     <dependency>
@@ -112,6 +118,28 @@
         <configuration>
           <source>17</source>
           <target>17</target>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>3.5.4</version>
+        <configuration>
+          <argLine>
+            --add-opens javafx.graphics/com.sun.glass.ui=ALL-UNNAMED
+            --add-opens javafx.graphics/com.sun.glass.ui.monocle=ALL-UNNAMED
+            --add-opens javafx.graphics/com.sun.javafx.application=ALL-UNNAMED
+            --add-opens javafx.graphics/com.sun.javafx.tk=ALL-UNNAMED
+            --add-opens javafx.graphics/com.sun.javafx.tk.quantum=ALL-UNNAMED
+            --add-opens javafx.base/com.sun.javafx.runtime=ALL-UNNAMED
+            -Djava.awt.headless=true
+            -Dtestfx.robot=glass
+            -Dtestfx.headless=true
+            -Dprism.order=sw
+            -Dprism.text=t2k
+            -Dglass.platform=Monocle
+            -Dmonocle.platform=Headless
+          </argLine>
         </configuration>
       </plugin>
 

@@ -8,7 +8,6 @@ import java.io.*;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
-import java.util.Date;
 import java.util.List;
 
 public class CsvStreamingExporter implements StreamingExporter {
@@ -90,23 +89,10 @@ public class CsvStreamingExporter implements StreamingExporter {
     }
 
     private String formatValue(Object value) {
-        if (value == null) return options.getNullValue();
-        if (value instanceof java.sql.Date) return dateFormat.format(new Date(((java.sql.Date) value).getTime()));
-        if (value instanceof java.sql.Timestamp) return dateFormat.format(new Date(((java.sql.Timestamp) value).getTime()));
-        if (value instanceof java.sql.Time) return dateFormat.format(new Date(((java.sql.Time) value).getTime()));
-        if (value instanceof Date) return dateFormat.format((Date) value);
-        return value.toString();
+        return CsvValueFormatter.formatValue(value, dateFormat, options);
     }
 
     private String escapeValue(String value) {
-        if (value == null) return "";
-        boolean needsQuotes = options.isQuoteAllValues() ||
-                value.contains(delimiter) ||
-                value.contains("\"") ||
-                value.contains("\n") ||
-                value.contains("\r");
-
-        if (!needsQuotes) return value;
-        return "\"" + value.replace("\"", "\"\"") + "\"";
+        return CsvValueFormatter.escapeValue(value, delimiter, options);
     }
 }

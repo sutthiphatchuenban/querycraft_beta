@@ -6,7 +6,6 @@ import querycraft.service.StreamingQueryService.StreamingExporter;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
-import java.sql.Types;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
@@ -124,32 +123,6 @@ public class SqlStreamingExporter implements StreamingExporter {
     }
 
     private String buildValuesClause(Object[] row) {
-        StringBuilder sb = new StringBuilder("(");
-        for (int i = 0; i < row.length; i++) {
-            if (i > 0) sb.append(", ");
-            sb.append(formatSqlValue(row[i], columns.get(i)));
-        }
-        sb.append(")");
-        return sb.toString();
-    }
-
-    private String formatSqlValue(Object value, ColumnInfo columnInfo) {
-        if (value == null) return "NULL";
-        int sqlType = columnInfo.getSqlType();
-        if (isNumericType(sqlType)) return value.toString();
-        if (value instanceof java.sql.Timestamp) return "'" + value.toString() + "'";
-        if (value instanceof java.sql.Date) return "'" + value.toString() + "'";
-        if (value instanceof java.sql.Time) return "'" + value.toString() + "'";
-        if (value instanceof Date) return "'" + dateFormat.format((Date) value) + "'";
-        if (value instanceof Boolean) return dbType.formatBoolean((Boolean) value);
-
-        String strValue = value.toString();
-        return "'" + strValue.replace("'", "''") + "'";
-    }
-
-    private boolean isNumericType(int sqlType) {
-        return sqlType == Types.INTEGER || sqlType == Types.BIGINT || sqlType == Types.SMALLINT ||
-               sqlType == Types.TINYINT || sqlType == Types.NUMERIC || sqlType == Types.DECIMAL ||
-               sqlType == Types.FLOAT || sqlType == Types.DOUBLE || sqlType == Types.REAL;
+        return SqlValueFormatter.buildValuesClause(row, columns, dateFormat, dbType);
     }
 }

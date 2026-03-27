@@ -57,6 +57,12 @@ public class SqlStreamingExporter implements StreamingExporter {
             writer.write(dbType.getBeginTransaction() + "\n\n");
         }
 
+        // Database specific pre-insert adjustments
+        String preInsert = dbType.getPreInsertSql(tableName);
+        if (preInsert != null && !preInsert.isEmpty()) {
+            writer.write(preInsert + "\n\n");
+        }
+
         // Precompute prefix
         StringBuilder sb = new StringBuilder();
         sb.append("INSERT INTO ").append(dbType.escapeIdentifier(tableName)).append(" (");
@@ -92,6 +98,13 @@ public class SqlStreamingExporter implements StreamingExporter {
             if (currentRowIndex > 0) {
                 writer.write(";\n"); // Finish last batch
             }
+
+            // Database specific post-insert adjustments
+            String postInsert = dbType.getPostInsertSql(tableName);
+            if (postInsert != null && !postInsert.isEmpty()) {
+                writer.write("\n" + postInsert + "\n");
+            }
+
             if (useTransaction) {
                 writer.write("\n" + dbType.getCommitTransaction() + "\n");
             }

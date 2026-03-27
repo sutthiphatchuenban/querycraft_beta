@@ -75,6 +75,10 @@ public class ConnectionInfo {
         return password;
     }
 
+    public void setPassword(String password) {
+        this.password = password;
+    }
+
     public boolean isUseSSL() {
         return useSSL;
     }

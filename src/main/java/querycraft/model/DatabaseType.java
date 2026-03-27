@@ -73,6 +73,18 @@ public enum DatabaseType {
         return dialect.formatBoolean(value);
     }
 
+    public String getSelectAllWithLimitQuery(String tableName, int limit) {
+        return dialect.getSelectAllWithLimitQuery(tableName, limit);
+    }
+
+    public String getPreInsertSql(String tableName) {
+        return dialect.getPreInsertSql(tableName);
+    }
+
+    public String getPostInsertSql(String tableName) {
+        return dialect.getPostInsertSql(tableName);
+    }
+
     @Override
     public String toString() {
         return displayName;

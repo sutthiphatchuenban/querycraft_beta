@@ -15,8 +15,14 @@ public class CsvDialect implements DatabaseDialect {
         return String.format(
             "SELECT COLUMN_NAME, TYPE_NAME, CHARACTER_MAXIMUM_LENGTH, IS_NULLABLE, COLUMN_DEFAULT " +
             "FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '%s' ORDER BY ORDINAL_POSITION",
-            tableName.toUpperCase()
+            tableName.toUpperCase().replace("'", "''")
         );
+    }
+
+    @Override
+    public String getSelectAllWithLimitQuery(String tableName, int limit) {
+        // H2 supports LIMIT
+        return String.format("SELECT * FROM %s LIMIT %d", escapeIdentifier(tableName), limit);
     }
 
     @Override

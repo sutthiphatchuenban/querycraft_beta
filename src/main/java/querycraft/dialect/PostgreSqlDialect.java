@@ -12,7 +12,13 @@ public class PostgreSqlDialect implements DatabaseDialect {
 
     @Override
     public String getDescribeTableQuery(String tableName) {
-        return String.format("SELECT column_name, data_type, character_maximum_length, is_nullable, column_default FROM information_schema.columns WHERE table_name = '%s' ORDER BY ordinal_position", tableName);
+        return String.format("SELECT column_name, data_type, character_maximum_length, is_nullable, column_default FROM information_schema.columns WHERE table_name = '%s' ORDER BY ordinal_position", 
+            tableName.replace("'", "''"));
+    }
+
+    @Override
+    public String getSelectAllWithLimitQuery(String tableName, int limit) {
+        return String.format("SELECT * FROM %s LIMIT %d", escapeIdentifier(tableName), limit);
     }
 
     @Override

@@ -23,19 +23,14 @@ public class QueryExecutorService {
     });
 
     private final DatabaseConnectionService connectionService;
-    private final java.util.List<querycraft.service.handler.QueryHandler> handlers = new java.util.ArrayList<>();
+    private final QueryExecutor queryExecutor;
     private int queryTimeoutSeconds = DEFAULT_QUERY_TIMEOUT_SECONDS;
     private int maxRows = 10000;
 
     public QueryExecutorService() {
         this.connectionService = DatabaseConnectionService.getInstance();
-        
-        // Initialize handlers (Strategy/Command pattern)
-        handlers.add(new querycraft.service.handler.SelectHandler());
-        handlers.add(new querycraft.service.handler.DeleteHandler());
-        handlers.add(new querycraft.service.handler.GenericHandler()); // Fallback
-        
-        logger.debug("QueryExecutorService initialized with {} handlers", handlers.size());
+        this.queryExecutor = new QueryExecutor();
+        logger.debug("QueryExecutorService initialized");
     }
 
     /**
@@ -66,11 +61,11 @@ public class QueryExecutorService {
     }
 
     /**
-     * Execute any query using the appropriate handler with timeout support.
+     * Execute any query with timeout support.
      */
     public QueryResult execute(String sql) throws QueryCraftException {
         connectionService.validateConnection();
-        
+
         // Validate query before execution
         ValidationResult validation = validateQuery(sql);
         if (!validation.isValid()) {
@@ -83,7 +78,7 @@ public class QueryExecutorService {
 
         // Execute with timeout
         Future<QueryResult> future = EXECUTOR.submit(() -> executeInternal(sql));
-        
+
         try {
             return future.get(queryTimeoutSeconds, TimeUnit.SECONDS);
         } catch (TimeoutException e) {
@@ -127,62 +122,9 @@ public class QueryExecutorService {
      * Internal execution without timeout handling.
      */
     private QueryResult executeInternal(String sql) throws Exception {
-        Connection conn = null;
-        try {
-            conn = connectionService.getCurrentConnection();
-            
-            for (querycraft.service.handler.QueryHandler handler : handlers) {
-                if (handler.canHandle(sql)) {
-                    logger.debug("Using handler {} for query", handler.getCategory());
-                    try {
-                        return handler.handle(sql, conn, maxRows);
-                    } catch (SQLException e) {
-                        logger.error("Handler {} failed to execute query", handler.getCategory(), e);
-                        throw new QueryCraftException(
-                            QueryCraftException.ErrorCode.QUERY_EXECUTION_FAILED,
-                            "Query execution failed: " + e.getMessage(),
-                            e
-                        );
-                    }
-                }
-            }
-            
-            throw new QueryCraftException(
-                QueryCraftException.ErrorCode.QUERY_EXECUTION_FAILED,
-                "No suitable handler found for this query"
-            );
-            
-        } finally {
-            // Close connection if not using pool (CSV connections)
-            if (conn != null && !connectionService.getCurrentConnectionInfo().getDatabaseType().equals(
-                    querycraft.model.DatabaseType.CSV)) {
-                try {
-                    conn.close();
-                } catch (SQLException e) {
-                    logger.warn("Failed to close connection", e);
-                }
-            }
+        try (Connection conn = connectionService.getCurrentConnection()) {
+            return queryExecutor.execute(sql, conn, maxRows);
         }
-    }
-
-    /**
-     * Normalize SQL by removing comments and extra whitespace.
-     */
-    private String normalizeSql(String sql) {
-        if (sql == null) return "";
-        
-        String normalized = sql;
-        
-        // Remove block comments /* ... */
-        normalized = normalized.replaceAll("/\\*[\\s\\S]*?\\*/", "");
-        
-        // Remove line comments -- ...
-        normalized = normalized.replaceAll("--.*", "");
-        
-        // Remove extra whitespace
-        normalized = normalized.replaceAll("\\s+", " ").trim();
-        
-        return normalized.toUpperCase();
     }
 
     /**
@@ -201,7 +143,6 @@ public class QueryExecutorService {
         }
 
         // Block dangerous operations
-        // Using more comprehensive patterns
         String[] dangerousPatterns = {
             "\\bDROP\\s+(TABLE|DATABASE|INDEX|VIEW|PROCEDURE|FUNCTION|TRIGGER)",
             "\\bTRUNCATE\\s+TABLE",
@@ -219,7 +160,7 @@ public class QueryExecutorService {
         for (String pattern : dangerousPatterns) {
             if (normalized.matches(".*" + pattern + ".*")) {
                 logger.warn("Dangerous SQL pattern detected: {}", pattern);
-                return new ValidationResult(false, 
+                return new ValidationResult(false,
                     "Potentially dangerous SQL pattern detected. Operation not allowed for safety.");
             }
         }
@@ -227,29 +168,38 @@ public class QueryExecutorService {
         return new ValidationResult(true, null);
     }
 
+    /**
+     * Normalize SQL by removing comments and extra whitespace.
+     */
+    private String normalizeSql(String sql) {
+        if (sql == null) return "";
 
+        String normalized = sql;
+
+        // Remove block comments /* ... */
+        normalized = normalized.replaceAll("/\\*[\\s\\S]*?\\*/", "");
+
+        // Remove line comments -- ...
+        normalized = normalized.replaceAll("--.*", "");
+
+        // Remove extra whitespace
+        normalized = normalized.replaceAll("\\s+", " ").trim();
+
+        return normalized.toUpperCase();
+    }
 
     /**
      * Check if query is a DELETE statement.
      */
     public boolean isDeleteQuery(String sql) {
-        if (sql == null) return false;
-        String normalized = normalizeSql(sql);
-        return normalized.startsWith("DELETE");
+        return queryExecutor.isDeleteQuery(sql);
     }
 
     /**
      * Check if query is a SELECT statement.
      */
     public boolean isSelectQuery(String sql) {
-        if (sql == null) return false;
-        String normalized = normalizeSql(sql);
-        return normalized.startsWith("SELECT") || 
-               normalized.startsWith("WITH") || 
-               normalized.startsWith("SHOW") || 
-               normalized.startsWith("DESCRIBE") || 
-               normalized.startsWith("EXPLAIN") ||
-               normalized.startsWith("DESC");
+        return queryExecutor.isReadQuery(sql);
     }
 
     /**

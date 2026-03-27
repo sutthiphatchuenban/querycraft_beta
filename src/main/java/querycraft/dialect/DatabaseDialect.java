@@ -19,4 +19,10 @@ public interface DatabaseDialect {
     String formatBoolean(boolean value);
     
     String buildUrl(String host, int port, String database, boolean useSSL, String baseUrlFormat);
+    
+    String getSelectAllWithLimitQuery(String tableName, int limit);
+    
+    default String getPreInsertSql(String tableName) { return ""; }
+    
+    default String getPostInsertSql(String tableName) { return ""; }
 }

@@ -137,13 +137,8 @@ public class MainController extends BorderPane implements querycraft.service.Con
         sidebarSection.setListener(new SidebarSection.SidebarListener() {
             @Override
             public void onTableDoubleClicked(String tableName) {
-                // For CSV, don't add LIMIT
-                ConnectionInfo info = connectionService.getCurrentConnectionInfo();
-                if (info instanceof CsvConnectionInfo) {
-                    querySection.setSqlText("SELECT * FROM \"" + tableName + "\"");
-                } else {
-                    querySection.setSqlText("SELECT * FROM " + tableName + " LIMIT 100");
-                }
+                String sql = connectionService.getCurrentConnectionInfo().getDatabaseType().getSelectAllWithLimitQuery(tableName, 100);
+                querySection.setSqlText(sql);
                 executeQuery();
             }
 
@@ -271,20 +266,22 @@ public class MainController extends BorderPane implements querycraft.service.Con
     }
 
     private void connect(ConnectionInfo info) {
-        try {
-            setStatus("Connecting...");
-            if (info instanceof CsvConnectionInfo) {
-                setStatus("Loading CSV file...");
-            }
-            connectionService.connect(info);
-            // UI updates now handled by onConnected observer method
-        } catch (Exception e) {
-            // We catch general Exception here to prevent crashes from Hikari RuntimeExceptions.
-            // Note: DatabaseConnectionService.connect now notifies observers on failure, 
-            // so onConnectionFailed(e) will be called automatically and show the alert.
-            logger.error("Connection attempt failed unexpectedly", e);
-            setStatus("Connection failed");
+        setStatus("Connecting...");
+        if (info instanceof CsvConnectionInfo) {
+            setStatus("Loading CSV file...");
         }
+
+        // Run connection in background thread so UI doesn't hang
+        new Thread(() -> {
+            try {
+                connectionService.connect(info);
+                // Success/Fail notifications are handled by observers 
+                // in DatabaseConnectionService (already implemented)
+            } catch (Exception e) {
+                logger.error("Connection attempt failed unexpectedly", e);
+                setStatus("Connection failed");
+            }
+        }).start();
     }
 
     private void disconnect() {

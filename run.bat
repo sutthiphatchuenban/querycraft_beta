@@ -119,6 +119,13 @@ if not exist "lib\HikariCP-5.1.0.jar" (
     powershell -Command "& {$progressPreference='silentlyContinue'; Invoke-WebRequest -Uri 'https://repo1.maven.org/maven2/com/zaxxer/HikariCP/5.1.0/HikariCP-5.1.0.jar' -OutFile 'lib\HikariCP-5.1.0.jar'}"
 )
 
+REM === Download SQL Server JDBC Auth DLL for Windows Authentication ===
+if not exist "lib\mssql-jdbc_auth-12.6.1.x64.dll" (
+    echo Downloading SQL Server JDBC Auth DLL for Windows Authentication...
+    powershell -Command "& {$progressPreference='silentlyContinue'; Invoke-WebRequest -Uri 'https://repo1.maven.org/maven2/com/microsoft/sqlserver/mssql-jdbc_auth/12.6.1.x64/mssql-jdbc_auth-12.6.1.x64.dll' -OutFile 'lib\mssql-jdbc_auth-12.6.1.x64.dll'}"
+    if exist "lib\mssql-jdbc_auth-12.6.1.x64.dll" echo [OK] SQL Server Auth DLL downloaded
+)
+
 echo [OK] All Libraries Checked
 
 echo.
@@ -137,7 +144,6 @@ javac -encoding UTF-8 --module-path "%MODULE_PATH%" -d target\classes ^
     src\main\java\querycraft\dialect\*.java ^
     src\main\java\querycraft\model\*.java ^
     src\main\java\querycraft\service\*.java ^
-    src\main\java\querycraft\service\handler\*.java ^
     src\main\java\querycraft\util\*.java ^
     src\main\java\querycraft\ui\*.java ^
     src\main\java\querycraft\ui\component\*.java ^
@@ -155,8 +161,12 @@ echo Starting QueryCraft (Modularized)...
 echo.
 
 REM Run with JPMS
+REM Set library path for SQL Server Windows Authentication DLL
+set SQL_AUTH_DLL=%CD%\lib\mssql-jdbc_auth-12.6.1.x64.dll
+
 java --module-path "%MODULE_PATH%;target\classes" ^
      --add-modules mysql.connector.j,org.postgresql.jdbc,com.microsoft.sqlserver.jdbc,wellbehavedfx,com.h2database ^
+     -Djava.library.path="%CD%\lib" ^
      -m querycraft/querycraft.QueryCraftApp
 
 if errorlevel 1 (

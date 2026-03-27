@@ -83,6 +83,12 @@ public class SqlInsertGenerator implements DataExporter {
                 writer.write(dbType.getBeginTransaction() + "\n\n");
             }
 
+            // Database specific pre-insert adjustments (e.g., IDENTITY_INSERT for MSSQL)
+            String preInsert = dbType.getPreInsertSql(tableName);
+            if (preInsert != null && !preInsert.isEmpty()) {
+                writer.write(preInsert + "\n\n");
+            }
+
             // Generate INSERT statements
             List<Object[]> rows = result.getRows();
             String insertPrefix = buildInsertPrefix(tableName, columns, dbType);
@@ -96,6 +102,12 @@ public class SqlInsertGenerator implements DataExporter {
                 Object[] row = rows.get(i);
                 String values = buildValuesClause(row, columns, sdf, dbType);
                 writer.write(insertPrefix + values + ";\n");
+            }
+
+            // Database specific post-insert adjustments
+            String postInsert = dbType.getPostInsertSql(tableName);
+            if (postInsert != null && !postInsert.isEmpty()) {
+                writer.write("\n" + postInsert + "\n");
             }
 
             // End transaction
@@ -129,6 +141,12 @@ public class SqlInsertGenerator implements DataExporter {
 
             writer.write(dbType.getBeginTransaction() + "\n\n");
 
+            // Database specific pre-insert adjustments
+            String preInsert = dbType.getPreInsertSql(tableName);
+            if (preInsert != null && !preInsert.isEmpty()) {
+                writer.write(preInsert + "\n\n");
+            }
+
             String insertPrefix = buildInsertPrefix(tableName, columns, dbType);
             List<Object[]> rows = result.getRows();
             SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
@@ -145,6 +163,12 @@ public class SqlInsertGenerator implements DataExporter {
                 }
 
                 writer.write(";\n\n");
+            }
+
+            // Database specific post-insert adjustments
+            String postInsert = dbType.getPostInsertSql(tableName);
+            if (postInsert != null && !postInsert.isEmpty()) {
+                writer.write(postInsert + "\n\n");
             }
 
             writer.write(dbType.getCommitTransaction() + "\n");

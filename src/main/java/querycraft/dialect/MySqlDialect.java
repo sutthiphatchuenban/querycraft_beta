@@ -12,7 +12,12 @@ public class MySqlDialect implements DatabaseDialect {
 
     @Override
     public String getDescribeTableQuery(String tableName) {
-        return String.format("DESCRIBE %s", tableName);
+        return String.format("DESCRIBE %s", escapeIdentifier(tableName));
+    }
+
+    @Override
+    public String getSelectAllWithLimitQuery(String tableName, int limit) {
+        return String.format("SELECT * FROM %s LIMIT %d", escapeIdentifier(tableName), limit);
     }
 
     @Override

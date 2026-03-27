@@ -11,6 +11,7 @@ import javafx.stage.Modality;
 import querycraft.model.ConnectionInfo;
 import querycraft.model.CsvConnectionInfo;
 import querycraft.model.DatabaseType;
+import querycraft.model.MssqlConnectionInfo;
 import querycraft.service.DatabaseConnectionService;
 
 import java.io.File;
@@ -143,6 +144,54 @@ public class ConnectionDialog extends Dialog<ConnectionInfo> {
         CheckBox rememberCheck = new CheckBox("Remember Connection");
         rememberCheck.setSelected(true);
 
+        // Windows Authentication checkbox (for SQL Server only)
+        CheckBox windowsAuthCheck = new CheckBox("Use Windows Authentication");
+        windowsAuthCheck.setVisible(false);
+        windowsAuthCheck.setManaged(false);
+
+        // Named Pipes checkbox (for SQL Server only)
+        CheckBox namedPipesCheck = new CheckBox("Use Named Pipes (no TCP/IP required)");
+        namedPipesCheck.setVisible(false);
+        namedPipesCheck.setManaged(false);
+
+        // Instance Name field (for Named Pipes)
+        Label instanceLabel = new Label("Instance:");
+        instanceLabel.setVisible(false);
+        instanceLabel.setManaged(false);
+        TextField instanceField = new TextField("MSSQLSERVER");
+        instanceField.setPrefWidth(300);
+        instanceField.setPrefHeight(30);
+        instanceField.setPromptText("e.g. MSSQLSERVER, SQLEXPRESS");
+        instanceField.setVisible(false);
+        instanceField.setManaged(false);
+
+        // Toggle username/password visibility based on Windows Auth
+        windowsAuthCheck.setOnAction(e -> {
+            boolean useWinAuth = windowsAuthCheck.isSelected();
+            usernameField.setDisable(useWinAuth);
+            passwordField.setDisable(useWinAuth);
+            passwordTextField.setDisable(useWinAuth);
+            if (useWinAuth) {
+                usernameField.clear();
+                passwordField.clear();
+            }
+        });
+
+        // Toggle Named Pipes mode
+        namedPipesCheck.setOnAction(e -> {
+            boolean usePipes = namedPipesCheck.isSelected();
+            portField.setDisable(usePipes);
+            instanceLabel.setVisible(usePipes);
+            instanceLabel.setManaged(usePipes);
+            instanceField.setVisible(usePipes);
+            instanceField.setManaged(usePipes);
+            if (usePipes) {
+                portField.setText("0");
+            } else {
+                portField.setText(String.valueOf(DatabaseType.MSSQL.getDefaultPort()));
+            }
+        });
+
         // CSV folder specific fields
         csvFolderField = new TextField();
         csvFolderField.setPrefWidth(250);
@@ -182,7 +231,11 @@ public class ConnectionDialog extends Dialog<ConnectionInfo> {
         dbGrid.add(usernameField, 1, 3);
         dbGrid.add(new Label("Password:"), 0, 4);
         dbGrid.add(passBox, 1, 4);
-        dbGrid.add(sslCheck, 1, 5);
+        dbGrid.add(windowsAuthCheck, 1, 5);
+        dbGrid.add(namedPipesCheck, 1, 6);
+        dbGrid.add(instanceLabel, 0, 7);
+        dbGrid.add(instanceField, 1, 7);
+        dbGrid.add(sslCheck, 1, 8);
 
         // Container for CSV fields
         GridPane csvGrid = new GridPane();
@@ -231,12 +284,29 @@ public class ConnectionDialog extends Dialog<ConnectionInfo> {
             DatabaseType selected = typeCombo.getValue();
             if (selected != null) {
                 boolean isCsv = selected == DatabaseType.CSV;
+                boolean isMssql = selected == DatabaseType.MSSQL;
                 
                 // Switch between CSV and Database modes
                 dbGrid.setVisible(!isCsv);
                 dbGrid.setManaged(!isCsv);
                 csvGrid.setVisible(isCsv);
                 csvGrid.setManaged(isCsv);
+                
+                // Show Windows Auth and Named Pipes checkboxes only for MSSQL
+                windowsAuthCheck.setVisible(isMssql);
+                windowsAuthCheck.setManaged(isMssql);
+                namedPipesCheck.setVisible(isMssql);
+                namedPipesCheck.setManaged(isMssql);
+
+                // Reset Named Pipes UI when switching away from MSSQL
+                if (!isMssql) {
+                    namedPipesCheck.setSelected(false);
+                    instanceLabel.setVisible(false);
+                    instanceLabel.setManaged(false);
+                    instanceField.setVisible(false);
+                    instanceField.setManaged(false);
+                    portField.setDisable(false);
+                }
                 
                 if (!isCsv) {
                     portField.setText(String.valueOf(selected.getDefaultPort()));
@@ -275,17 +345,73 @@ public class ConnectionDialog extends Dialog<ConnectionInfo> {
             DatabaseType selectedType = typeCombo.getValue();
             if (selectedType == DatabaseType.CSV) {
                 testCsvConnection();
-            } else {
+            } else if (selectedType == DatabaseType.MSSQL && (windowsAuthCheck.isSelected() || namedPipesCheck.isSelected())) {
+                // Test MSSQL with Windows Auth or Named Pipes
                 try {
-                    ConnectionInfo info = new ConnectionInfo(
-                            typeCombo.getValue(),
-                            hostField.getText(),
-                            Integer.parseInt(portField.getText()),
-                            databaseField.getText(),
-                            usernameField.getText(),
-                            passwordField.getText(),
-                            sslCheck.isSelected()
-                    );
+                    MssqlConnectionInfo info;
+                    if (namedPipesCheck.isSelected()) {
+                        info = new MssqlConnectionInfo(
+                                hostField.getText(),
+                                databaseField.getText(),
+                                instanceField.getText(),
+                                windowsAuthCheck.isSelected(),
+                                true // useNamedPipes
+                        );
+                    } else {
+                        info = new MssqlConnectionInfo(
+                                hostField.getText(),
+                                Integer.parseInt(portField.getText()),
+                                databaseField.getText(),
+                                true // useWindowsAuth
+                        );
+                    }
+                    info.setUseSSL(sslCheck.isSelected());
+                    if (!windowsAuthCheck.isSelected()) {
+                        info.setUsername(usernameField.getText());
+                        info.setPassword(passwordField.getText());
+                    }
+                    testConnection(info);
+                } catch (NumberFormatException e) {
+                    showAlert(Alert.AlertType.ERROR, "Input Error", "Port must be a valid number.");
+                }
+            } else {
+                // Test MySQL or PostgreSQL with specific connection info
+                try {
+                    DatabaseType type = typeCombo.getValue();
+                    ConnectionInfo info;
+                    
+                    switch (type) {
+                        case MYSQL:
+                            info = new querycraft.model.MySqlConnectionInfo(
+                                    hostField.getText(),
+                                    Integer.parseInt(portField.getText()),
+                                    databaseField.getText(),
+                                    usernameField.getText(),
+                                    passwordField.getText(),
+                                    sslCheck.isSelected()
+                            );
+                            break;
+                        case POSTGRESQL:
+                            info = new querycraft.model.PostgreSqlConnectionInfo(
+                                    hostField.getText(),
+                                    Integer.parseInt(portField.getText()),
+                                    databaseField.getText(),
+                                    usernameField.getText(),
+                                    passwordField.getText(),
+                                    sslCheck.isSelected()
+                            );
+                            break;
+                        default:
+                            info = new ConnectionInfo(
+                                    type,
+                                    hostField.getText(),
+                                    Integer.parseInt(portField.getText()),
+                                    databaseField.getText(),
+                                    usernameField.getText(),
+                                    passwordField.getText(),
+                                    sslCheck.isSelected()
+                            );
+                    }
                     testConnection(info);
                 } catch (NumberFormatException e) {
                     showAlert(Alert.AlertType.ERROR, "Input Error", "Port must be a valid number.");
@@ -326,8 +452,10 @@ public class ConnectionDialog extends Dialog<ConnectionInfo> {
                 
                 if (selectedType == DatabaseType.CSV) {
                     return createCsvConnectionInfo();
+                } else if (selectedType == DatabaseType.MSSQL && (windowsAuthCheck.isSelected() || namedPipesCheck.isSelected())) {
+                    return createMssqlConnectionInfo(hostField, portField, databaseField, usernameField, passwordField, sslCheck, windowsAuthCheck, namedPipesCheck, instanceField);
                 } else {
-                    return createDatabaseConnectionInfo(typeCombo, hostField, portField, 
+                    return createDatabaseConnectionInfo(typeCombo, hostField, portField,
                         databaseField, usernameField, passwordField, sslCheck, rememberCheck, recentList);
                 }
             }
@@ -340,15 +468,42 @@ public class ConnectionDialog extends Dialog<ConnectionInfo> {
             TextField usernameField, PasswordField passwordField, CheckBox sslCheck,
             CheckBox rememberCheck, java.util.List<RecentConnection> recentList) {
         try {
-            ConnectionInfo info = new ConnectionInfo(
-                    typeCombo.getValue(),
-                    hostField.getText(),
-                    Integer.parseInt(portField.getText()),
-                    databaseField.getText(),
-                    usernameField.getText(),
-                    passwordField.getText(),
-                    sslCheck.isSelected()
-            );
+            DatabaseType type = typeCombo.getValue();
+            ConnectionInfo info;
+            
+            // Use specific connection info class based on database type
+            switch (type) {
+                case MYSQL:
+                    info = new querycraft.model.MySqlConnectionInfo(
+                            hostField.getText(),
+                            Integer.parseInt(portField.getText()),
+                            databaseField.getText(),
+                            usernameField.getText(),
+                            passwordField.getText(),
+                            sslCheck.isSelected()
+                    );
+                    break;
+                case POSTGRESQL:
+                    info = new querycraft.model.PostgreSqlConnectionInfo(
+                            hostField.getText(),
+                            Integer.parseInt(portField.getText()),
+                            databaseField.getText(),
+                            usernameField.getText(),
+                            passwordField.getText(),
+                            sslCheck.isSelected()
+                    );
+                    break;
+                default:
+                    info = new ConnectionInfo(
+                            type,
+                            hostField.getText(),
+                            Integer.parseInt(portField.getText()),
+                            databaseField.getText(),
+                            usernameField.getText(),
+                            passwordField.getText(),
+                            sslCheck.isSelected()
+                    );
+            }
 
             // Save to recent list if 'Remember' is checked
             if (rememberCheck.isSelected()) {
@@ -386,6 +541,41 @@ public class ConnectionDialog extends Dialog<ConnectionInfo> {
         }
         
         return info;
+    }
+
+    private MssqlConnectionInfo createMssqlConnectionInfo(TextField hostField,
+            TextField portField, TextField databaseField,
+            TextField usernameField, PasswordField passwordField,
+            CheckBox sslCheck, CheckBox windowsAuthCheck,
+            CheckBox namedPipesCheck, TextField instanceField) {
+        try {
+            MssqlConnectionInfo info;
+            if (namedPipesCheck.isSelected()) {
+                info = new MssqlConnectionInfo(
+                        hostField.getText(),
+                        databaseField.getText(),
+                        instanceField.getText(),
+                        windowsAuthCheck.isSelected(),
+                        true // useNamedPipes
+                );
+            } else {
+                info = new MssqlConnectionInfo(
+                        hostField.getText(),
+                        Integer.parseInt(portField.getText()),
+                        databaseField.getText(),
+                        windowsAuthCheck.isSelected()
+                );
+            }
+            info.setUseSSL(sslCheck.isSelected());
+            if (!windowsAuthCheck.isSelected()) {
+                info.setUsername(usernameField.getText());
+                info.setPassword(passwordField.getText());
+            }
+            return info;
+        } catch (NumberFormatException e) {
+            showAlert(Alert.AlertType.ERROR, "Input Error", "Port must be a valid number.");
+            return null;
+        }
     }
 
     private void testCsvConnection() {

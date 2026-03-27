@@ -8,6 +8,9 @@ import querycraft.exception.QueryCraftException;
 import querycraft.model.ConnectionInfo;
 import querycraft.model.CsvConnectionInfo;
 import querycraft.model.DatabaseType;
+import querycraft.model.MssqlConnectionInfo;
+
+import java.io.File;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -132,6 +135,13 @@ public class DatabaseConnectionService {
                 return connectToCsv((CsvConnectionInfo) connectionInfo);
             }
 
+            // For MSSQL Windows Auth, ensure auth DLL is available
+            if (connectionInfo instanceof MssqlConnectionInfo mssqlInfo) {
+                if (mssqlInfo.isUseWindowsAuth()) {
+                    configureWindowsAuthDll();
+                }
+            }
+
             // Create connection pool
             createConnectionPool(connectionInfo);
             currentConnectionInfo = connectionInfo;
@@ -172,7 +182,10 @@ public class DatabaseConnectionService {
         // Pool settings
         config.setMaximumPoolSize(configuredMaxPoolSize);
         config.setMinimumIdle(Math.min(configuredMinIdle, configuredMaxPoolSize));
-        config.setConnectionTimeout(configuredConnectionTimeoutMs);
+        
+        // Fail fast if the first connection fails (prevents hangs on wrong database name)
+        config.setInitializationFailTimeout(-1);
+        config.setConnectionTimeout(5000); // 5 seconds for initial connection attempt
         config.setIdleTimeout(300000); // 5 minutes
         config.setMaxLifetime(1800000); // 30 minutes
         
@@ -195,7 +208,8 @@ public class DatabaseConnectionService {
                 config.addDataSourceProperty("socketTimeout", "30");
             }
             case MSSQL -> {
-                config.addDataSourceProperty("loginTimeout", "30");
+                config.addDataSourceProperty("loginTimeout", "5");
+                config.addDataSourceProperty("trustServerCertificate", "true");
             }
             case CSV -> {
                 // CSV connections are handled separately and do not use HikariCP.
@@ -387,6 +401,57 @@ public class DatabaseConnectionService {
             dataSource.setMaximumPoolSize(configuredMaxPoolSize);
             dataSource.setMinimumIdle(Math.min(configuredMinIdle, configuredMaxPoolSize));
             dataSource.setConnectionTimeout(configuredConnectionTimeoutMs);
+        }
+    }
+
+    /**
+     * Pre-load the mssql-jdbc_auth DLL for Windows Authentication.
+     * Tells the Microsoft JDBC driver exactly where the DLL is using absolute path.
+     * This allows Windows Auth to work from both IDE and run.bat.
+     */
+    private void configureWindowsAuthDll() {
+        String dllName = "mssql-jdbc_auth-12.6.1.x64.dll";
+        String userDir = System.getProperty("user.dir");
+        
+        // Search locations for the auth DLL (preferring those relative to project root)
+        String[] searchPaths = {
+            userDir + File.separator + "lib",
+            userDir,
+            "lib",
+            ".",
+            "target"
+        };
+        
+        File foundDll = null;
+        for (String path : searchPaths) {
+            File dllFile = new File(path, dllName);
+            if (dllFile.exists()) {
+                foundDll = dllFile;
+                break;
+            }
+        }
+        
+        if (foundDll != null) {
+            String absolutePath = foundDll.getAbsolutePath();
+            logger.info("Configuring MSSQL auth DLL from: {}", absolutePath);
+            
+            // 1. Tell driver exactly where the DLL is using absolute path property
+            System.setProperty("mssql.auth.dll.name", absolutePath);
+            
+            // 2. Also pre-load it as a backup strategy
+            try {
+                System.load(absolutePath);
+                logger.info("Successfully pre-loaded and configured MSSQL auth DLL");
+            } catch (UnsatisfiedLinkError e) {
+                if (e.getMessage() != null && e.getMessage().contains("already loaded")) {
+                    logger.debug("MSSQL auth DLL already loaded (OK)");
+                } else {
+                    logger.warn("Native load warning (driver may still work via property): {}", e.getMessage());
+                }
+            }
+        } else {
+            logger.warn("SQL Server auth DLL ({}) not found. Windows Authentication may fail. "
+                + "Please ensure it exists in the 'lib' folder.", dllName);
         }
     }
 }

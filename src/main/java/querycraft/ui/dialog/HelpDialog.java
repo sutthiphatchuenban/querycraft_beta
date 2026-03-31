@@ -432,6 +432,90 @@ public class HelpDialog extends Dialog<Void> {
                 "Encryption/trust errors - SSL settings may need adjustment"
             ),
              
+            createSubtitle("How to Enable TCP/IP for SQL Server"),
+            createParagraph("By default, SQL Server may only listen on Shared Memory or Named Pipes. " +
+                "To connect from QueryCraft using Host/Port (TCP/IP mode), you must enable TCP/IP in SQL Server Configuration Manager."),
+            createCodeBlock(
+                "Step-by-step:\n\n" +
+                "1. Open 'SQL Server Configuration Manager'\n" +
+                "   - Search 'SQL Server Configuration' in Windows Start\n" +
+                "   - Or run: SQLServerManager16.msc (for SQL 2022)\n" +
+                "                SQLServerManager15.msc (for SQL 2019)\n" +
+                "                SQLServerManager14.msc (for SQL 2017)\n\n" +
+                "2. Go to: SQL Server Network Configuration > Protocols for [INSTANCE]\n\n" +
+                "3. Right-click 'TCP/IP' > Enable\n\n" +
+                "4. Double-click 'TCP/IP' > IP Addresses tab\n" +
+                "   - Scroll to 'IPAll' section\n" +
+                "   - Set 'TCP Port' = 1433 (or your preferred port)\n" +
+                "   - Clear 'TCP Dynamic Ports' if you want a fixed port\n\n" +
+                "5. Restart SQL Server service:\n" +
+                "   - In SQL Server Configuration Manager > SQL Server Services\n" +
+                "   - Right-click 'SQL Server (INSTANCE)' > Restart"
+            ),
+
+            createSubtitle("How to Check if Port is Open (PowerShell)"),
+            createParagraph("Use these PowerShell commands to verify SQL Server is listening on the expected port:"),
+            createCodeBlock(
+                "# Check if SQL Server is listening on port 1433\n" +
+                "Test-NetConnection -ComputerName localhost -Port 1433\n\n" +
+                "# Check a remote server\n" +
+                "Test-NetConnection -ComputerName 192.168.1.100 -Port 1433\n\n" +
+                "# List all ports SQL Server is using\n" +
+                "Get-NetTCPConnection -OwningProcess (Get-Process sqlservr).Id |\n" +
+                "  Select-Object LocalPort, State | Sort-Object LocalPort\n\n" +
+                "# Quick check from CMD\n" +
+                "telnet localhost 1433"
+            ),
+
+            createSubtitle("Windows Authentication Setup"),
+            createParagraph("To use 'Use Windows Authentication' checkbox in QueryCraft, no username/password is needed. " +
+                "The application uses your current Windows login. Requirements:"),
+            createBulletList(
+                "SQL Server must have 'Windows Authentication mode' or 'Mixed Mode' enabled",
+                "Your Windows user must have a login mapped in SQL Server",
+                "The mssql-jdbc_auth DLL must be present (auto-downloaded to lib/ folder)",
+                "TCP/IP must be enabled (Windows Auth over TCP/IP is the most stable method)"
+            ),
+            createCodeBlock(
+                "-- To check/add your Windows login in SQL Server:\n" +
+                "-- Run in SSMS or sqlcmd:\n\n" +
+                "-- Check if your login exists\n" +
+                "SELECT name FROM sys.server_principals WHERE type = 'U';\n\n" +
+                "-- Add your Windows login (run as admin)\n" +
+                "CREATE LOGIN [DOMAIN\\\\username] FROM WINDOWS;\n" +
+                "USE [your_database];\n" +
+                "CREATE USER [DOMAIN\\\\username] FOR LOGIN [DOMAIN\\\\username];\n" +
+                "ALTER ROLE db_datareader ADD MEMBER [DOMAIN\\\\username];"
+            ),
+
+            createSubtitle("Named Pipes Setup"),
+            createParagraph("If TCP/IP cannot be enabled (e.g., corporate policy), you can use Named Pipes mode. " +
+                "Check 'Use Named Pipes (no TCP/IP required)' in the connection dialog. This bypasses port configuration entirely."),
+            createBulletList(
+                "Named Pipes must be enabled in SQL Server Configuration Manager",
+                "Works only for local or same-network connections",
+                "Enter the Instance Name (e.g., SQLEXPRESS, MSSQLSERVER) instead of port",
+                "Combined with Windows Authentication, this requires zero password setup"
+            ),
+            createCodeBlock(
+                "Enable Named Pipes:\n\n" +
+                "1. Open SQL Server Configuration Manager\n" +
+                "2. Go to: SQL Server Network Configuration > Protocols for [INSTANCE]\n" +
+                "3. Right-click 'Named Pipes' > Enable\n" +
+                "4. Restart SQL Server service"
+            ),
+
+            createSubtitle("Firewall Configuration"),
+            createParagraph("If connecting from another machine, you must open the SQL Server port in Windows Firewall:"),
+            createCodeBlock(
+                "# PowerShell (Run as Administrator)\n\n" +
+                "# Open port 1433 for SQL Server\n" +
+                "New-NetFirewallRule -DisplayName 'SQL Server Port 1433' `\n" +
+                "  -Direction Inbound -Protocol TCP -LocalPort 1433 -Action Allow\n\n" +
+                "# Verify the rule was created\n" +
+                "Get-NetFirewallRule -DisplayName 'SQL Server*' | Format-Table"
+            ),
+
             createNote("SQL Server uses TOP instead of LIMIT. Use TOP 100 for row limiting.")
         );
         
